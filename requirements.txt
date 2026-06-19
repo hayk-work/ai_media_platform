@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-dotenv
+sqlalchemy
+alembic
+asyncpg
+httpx
+python-multipart
+pillow
+boto3
+aioboto3
+langchain
+langgraph
+langchain-aws
+structlog

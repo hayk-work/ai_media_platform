@@ -45,6 +45,5 @@ This project is **API-only** — clients use HTTP (`curl`, Postman, `/docs`).
 
 ## Current status
 
-- **Sprint 01** — implemented locally
-- **Sprint 02** — next up (replaces `POST /auth/session` placeholder)
-- **Sprints 03–11** — planned
+- **Sprint 02** — implemented locally (JWT auth)
+- **Sprint 03** — next up (CloudFormation network)

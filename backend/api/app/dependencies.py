@@ -2,6 +2,7 @@ import uuid
 
 from common.db import get_db_session
 from common.models import User
+from common.security import decode_access_token
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,27 +10,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 async def get_current_user(
     authorization: str | None = Header(default=None),
-    x_user_id: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db_session),
 ) -> User:
-    user_id_raw = None
-    if authorization and authorization.startswith("Bearer "):
-        user_id_raw = authorization.removeprefix("Bearer ").strip()
-    elif x_user_id:
-        user_id_raw = x_user_id.strip()
-
-    if not user_id_raw:
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing authentication. Use Authorization: Bearer <user_id> or X-User-Id.",
+            detail="Missing authentication. Use Authorization: Bearer <access_token>.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id_raw = payload.get("sub")
+    token_version = payload.get("tv")
+    if not user_id_raw or token_version is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid access token.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
-        user_id = uuid.UUID(user_id_raw)
+        user_id = uuid.UUID(str(user_id_raw))
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user identifier.",
+            detail="Invalid access token.",
+            headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
     result = await db.execute(select(User).where(User.id == user_id))
@@ -38,5 +52,14 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if user.token_version != int(token_version):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Access token has been revoked.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user

@@ -10,13 +10,31 @@ class HealthResponse(BaseModel):
     db: str
 
 
-class SessionRequest(BaseModel):
+class RegisterRequest(BaseModel):
     email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
 
 
-class SessionResponse(BaseModel):
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
     user_id: uuid.UUID
-    token: str
+
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    created_at: datetime
+    updated_at: datetime
+
+
+class LogoutResponse(BaseModel):
+    message: str
 
 
 class UploadRequest(BaseModel):

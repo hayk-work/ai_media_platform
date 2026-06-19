@@ -67,31 +67,48 @@ Expected tables: `users`, `media_items`, `processing_jobs`, `alembic_version`.
 PostgreSQL is exposed on host port **5433** (mapped to 5432 inside Docker) to avoid
 conflicts with a local PostgreSQL installation.
 
-## API flow (placeholder auth)
+## API flow (authentication)
 
-1. Create a session:
+1. Register a user:
 
    ```bash
-   curl -X POST http://localhost:8000/auth/session \
+   curl -X POST http://localhost:8000/auth/register \
      -H "Content-Type: application/json" \
-     -d '{"email":"demo@example.com"}'
+     -d '{"email":"demo@example.com","password":"strong-password-123"}'
    ```
 
-2. Create an upload request (use `user_id` from step 1 as the bearer token):
+2. Log in and copy the `access_token`:
+
+   ```bash
+   curl -X POST http://localhost:8000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"demo@example.com","password":"strong-password-123"}'
+   ```
+
+3. Create an upload request:
 
    ```bash
    curl -X POST http://localhost:8000/uploads \
      -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <user_id>" \
+     -H "Authorization: Bearer <access_token>" \
      -d '{"filename":"photo.jpg","content_type":"image/jpeg","file_size_bytes":1024}'
    ```
 
-3. List media:
+4. List media:
 
    ```bash
    curl http://localhost:8000/media \
-     -H "Authorization: Bearer <user_id>"
+     -H "Authorization: Bearer <access_token>"
    ```
+
+5. Log out (invalidates issued tokens server-side):
+
+   ```bash
+   curl -X POST http://localhost:8000/auth/logout \
+     -H "Authorization: Bearer <access_token>"
+   ```
+
+   After logout, discard the token on the client. The same token will no longer work.
 
 ## Media statuses
 
@@ -141,8 +158,8 @@ pytest -m integration   # live API tests (requires docker compose up)
 
 See [sprints/README.md](sprints/README.md) for the full roadmap.
 
-- **Sprint 02**: Authentication (register, login, JWT) — **next up**
-- **Sprint 03**: CloudFormation VPC and network
+- **Sprint 02**: Authentication — **done locally**
+- **Sprint 03**: CloudFormation VPC and network — **next up**
 - **Sprint 04**: Deploy API on ECS Fargate
 - **Sprint 05**: S3 presigned uploads
 - **Sprint 06**: SQS/EventBridge async workers

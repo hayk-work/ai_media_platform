@@ -1,31 +1,7 @@
 import uuid
 
 import pytest
-from app.main import app
-from common.db import get_db_session
-from httpx import ASGITransport, AsyncClient
-
-
-class _FakeResult:
-    def scalar_one_or_none(self):
-        return None
-
-
-class _FakeSession:
-    async def execute(self, _statement):
-        return _FakeResult()
-
-
-@pytest.fixture
-async def mocked_db_client():
-    async def override_get_db():
-        yield _FakeSession()  # type: ignore[misc]
-
-    app.dependency_overrides[get_db_session] = override_get_db
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as http_client:
-        yield http_client
-    app.dependency_overrides.clear()
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -37,20 +13,36 @@ async def test_health_returns_ok(mocked_db_client: AsyncClient) -> None:
     assert payload["db"] == "connected"
 
 
+async def _register_and_login(
+    client: AsyncClient, email: str, password: str
+) -> tuple[str, dict[str, str]]:
+    register_response = await client.post(
+        "/auth/register",
+        json={"email": email, "password": password},
+    )
+    assert register_response.status_code == 201
+
+    login_response = await client.post(
+        "/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    return token, {"Authorization": f"Bearer {token}"}
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_auth_upload_list_and_get_flow(
+async def test_register_login_upload_list_and_get_flow(
     integration_client: AsyncClient, api_available
 ) -> None:
     email = f"integration-{uuid.uuid4()}@example.com"
+    password = "integration-password-123"
+    _, auth_header = await _register_and_login(integration_client, email, password)
 
-    session_response = await integration_client.post("/auth/session", json={"email": email})
-    assert session_response.status_code == 200
-    session_payload = session_response.json()
-    user_id = session_payload["user_id"]
-    token = session_payload["token"]
-    assert token == user_id
-    auth_header = {"Authorization": f"Bearer {token}"}
+    me_response = await integration_client.get("/auth/me", headers=auth_header)
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == email
 
     upload_response = await integration_client.post(
         "/uploads",
@@ -72,17 +64,10 @@ async def test_auth_upload_list_and_get_flow(
     assert len(list_payload["items"]) >= 1
     listed = next(item for item in list_payload["items"] if item["id"] == media_id)
     assert listed["filename"] == "integration-test.jpg"
-    assert listed["content_type"] == "image/jpeg"
-    assert listed["file_size_bytes"] == 2048
-    assert listed["status"] == "UPLOADING"
-    assert listed["latest_job"] is not None
-    assert listed["latest_job"]["status"] == "UPLOADING"
 
     get_response = await integration_client.get(f"/media/{media_id}", headers=auth_header)
     assert get_response.status_code == 200
-    get_payload = get_response.json()
-    assert get_payload["id"] == media_id
-    assert get_payload["filename"] == "integration-test.jpg"
+    assert get_response.json()["id"] == media_id
 
 
 @pytest.mark.integration

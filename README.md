@@ -159,7 +159,7 @@ pytest -m integration   # live API tests (requires docker compose up)
 See [sprints/README.md](sprints/README.md) for the full roadmap.
 
 - **Sprint 02**: Authentication — **done locally**
-- **Sprint 03**: CloudFormation VPC and network — **next up**
-- **Sprint 04**: Deploy API on ECS Fargate
+- **Sprint 03**: CloudFormation VPC and network — **done locally (templates + tests)**
+- **Sprint 04**: Deploy API on ECS Fargate — **next up**
 - **Sprint 05**: S3 presigned uploads
 - **Sprint 06**: SQS/EventBridge async workers

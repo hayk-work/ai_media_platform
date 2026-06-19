@@ -1,0 +1,61 @@
+# Stack output contract for downstream templates (ECS, RDS, S3).
+# These keys are exported by infrastructure/master.yaml.
+
+VpcId:
+  description: VPC identifier
+  used_by:
+    - ECS services
+    - RDS
+    - VPC endpoints
+
+PublicSubnetIds:
+  description: Comma-separated public subnet IDs for ALB
+  used_by:
+    - Application Load Balancer
+
+PrivateSubnetIds:
+  description: Comma-separated private subnet IDs for ECS and RDS
+  used_by:
+    - ECS API service
+    - ECS worker service
+    - RDS PostgreSQL
+
+NatGatewayId:
+  description: NAT gateway for private subnet egress
+  used_by:
+    - ECS tasks pulling images and calling AWS APIs
+
+AlbSecurityGroupId:
+  description: Security group attached to the ALB
+  used_by:
+    - Application Load Balancer
+
+ApiServiceSecurityGroupId:
+  description: Security group for API ECS tasks
+  used_by:
+    - ECS API service
+
+WorkerServiceSecurityGroupId:
+  description: Security group for worker ECS tasks
+  used_by:
+    - ECS worker service
+
+RdsSecurityGroupId:
+  description: Security group for PostgreSQL
+  used_by:
+    - RDS instance
+
+EcsTaskExecutionRoleArn:
+  description: ECS task execution role ARN
+  used_by:
+    - ECS task definitions
+
+EcsApiTaskRoleArn:
+  description: API task role ARN
+  used_by:
+    - ECS API task definition
+
+EcsWorkerTaskRoleArn:
+  description: Worker task role ARN
+  used_by:
+    - ECS worker task definition

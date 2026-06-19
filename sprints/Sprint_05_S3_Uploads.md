@@ -1,4 +1,4 @@
-# Sprint 04 - S3 Upload System
+# Sprint 05 - S3 Upload System
 
 ## Portfolio context
 
@@ -19,9 +19,9 @@ platform can store it reliably and process it in the background.
 ## Architecture focus
 
 ```text
-Frontend
+API Client
    |
-   | POST /uploads
+   | POST /uploads  (Authorization: Bearer <jwt>)
    v
 ECS API
    |
@@ -30,7 +30,7 @@ ECS API
    +--> S3: generate presigned upload URL
    |
    v
-Frontend
+API Client
    |
    | PUT file to presigned URL
    v

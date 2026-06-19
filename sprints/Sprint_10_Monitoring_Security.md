@@ -1,4 +1,4 @@
-# Sprint 09 - Monitoring, Security, CloudWatch, and CloudTrail
+# Sprint 10 - Monitoring, Security, CloudWatch, and CloudTrail
 
 ## Portfolio context
 

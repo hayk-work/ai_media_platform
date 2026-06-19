@@ -1,4 +1,4 @@
-# Sprint 06 - AI Processing with LangChain and LangGraph
+# Sprint 07 - AI Processing with LangChain and LangGraph
 
 ## Portfolio context
 

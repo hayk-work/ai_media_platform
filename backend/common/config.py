@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://amp:amp@localhost:5432/ai_media_platform"
+    jwt_secret: str = "local-dev-jwt-secret-change-in-production-32b"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60
 
 
 settings = Settings()

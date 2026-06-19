@@ -15,3 +15,5 @@ langgraph
 langchain-aws
 structlog
 email-validator
+bcrypt
+PyJWT

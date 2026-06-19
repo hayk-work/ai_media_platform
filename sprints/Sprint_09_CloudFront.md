@@ -1,17 +1,20 @@
-# Sprint 08 - CloudFront Production Layer
+# Sprint 09 - CloudFront Production Layer
 
 ## Portfolio context
 
 Add CloudFront so the project looks like a production media platform. CloudFront
-can deliver the frontend, accelerate API requests, and serve processed media
-from private S3 buckets without exposing S3 directly to the public internet.
+can accelerate API requests and serve processed media from private S3 buckets
+without exposing S3 directly to the public internet.
+
+This project is API-only, so CloudFront focuses on API and media delivery rather
+than a static frontend origin.
 
 This sprint demonstrates CDN architecture, edge caching, HTTPS, private S3
 origins, and the difference between upload and download paths.
 
 ## User story
 
-As a user, I want the web app and processed images to load quickly and securely
+As a user, I want API responses and processed media to load quickly and securely
 through a CDN.
 
 ## Architecture focus

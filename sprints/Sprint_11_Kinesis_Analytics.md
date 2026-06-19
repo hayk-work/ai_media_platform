@@ -1,4 +1,4 @@
-# Sprint 10 - Kinesis Analytics
+# Sprint 11 - Kinesis Analytics
 
 ## Portfolio context
 

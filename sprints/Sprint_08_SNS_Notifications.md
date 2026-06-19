@@ -1,4 +1,4 @@
-# Sprint 07 - SNS Notifications
+# Sprint 08 - SNS Notifications
 
 ## Portfolio context
 
@@ -49,8 +49,7 @@ SNS Topic
   - `PENDING`
   - `SENT`
   - `FAILED`
-- Add API support for user notification preferences if authentication is in
-  scope.
+- Add API support for user notification preferences (requires Sprint 02 JWT auth).
 - Add CloudWatch logs for publish attempts and failures.
 
 ## AWS topics demonstrated

@@ -1,11 +1,11 @@
-# Sprint 03 - ECS Fargate API
+# Sprint 04 - ECS Fargate API
 
 ## Portfolio context
 
 Deploy the backend API as a real containerized service on ECS Fargate. This is
-the main control plane for the AI Media Processing Platform: it authenticates
-users, creates upload records, generates presigned upload URLs in a later sprint,
-and lets users check processing status.
+the main control plane for the AI Media Processing Platform: it serves
+authenticated users (Sprint 02), creates upload records, generates presigned
+upload URLs in a later sprint, and lets users check processing status.
 
 This sprint shows that you can run production-style APIs on AWS using Docker,
 ECR, ECS, ALB, IAM, and CloudWatch Logs.

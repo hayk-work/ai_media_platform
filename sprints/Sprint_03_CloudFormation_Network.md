@@ -1,4 +1,4 @@
-# Sprint 02 - CloudFormation and AWS Network
+# Sprint 03 - CloudFormation and AWS Network
 
 ## Portfolio context
 

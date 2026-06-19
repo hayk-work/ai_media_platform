@@ -20,7 +20,7 @@ product from the beginning.
 ## Architecture focus
 
 ```text
-Frontend
+API Client
    |
    v
 Backend API
@@ -35,7 +35,6 @@ Backend API
 - Create the repository structure:
   - `backend/api`
   - `backend/worker`
-  - `frontend`
   - `infrastructure`
   - `sprints`
 - Add a backend API skeleton for:
@@ -88,3 +87,6 @@ Show a screenshot or terminal output of:
 
 The platform has a clean local foundation that can grow naturally into a
 production-style AWS architecture.
+
+**Next sprint:** [Sprint 02 - Authentication](./Sprint_02_Authentication.md)
+replaces the `POST /auth/session` placeholder with register, login, and JWT.

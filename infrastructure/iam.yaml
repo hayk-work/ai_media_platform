@@ -78,17 +78,11 @@ Outputs:
   EcsTaskExecutionRoleArn:
     Description: Role used by ECS to pull images and write logs.
     Value: !GetAtt EcsTaskExecutionRole.Arn
-    Export:
-      Name: !Sub ${EnvironmentName}-EcsTaskExecutionRoleArn
 
   EcsApiTaskRoleArn:
     Description: Application role for the API ECS tasks.
     Value: !GetAtt EcsApiTaskRole.Arn
-    Export:
-      Name: !Sub ${EnvironmentName}-EcsApiTaskRoleArn
 
   EcsWorkerTaskRoleArn:
     Description: Application role for worker ECS tasks.
     Value: !GetAtt EcsWorkerTaskRole.Arn
-    Export:
-      Name: !Sub ${EnvironmentName}-EcsWorkerTaskRoleArn

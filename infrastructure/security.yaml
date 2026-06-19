@@ -86,23 +86,15 @@ Outputs:
   AlbSecurityGroupId:
     Description: Security group for the public Application Load Balancer.
     Value: !Ref AlbSecurityGroup
-    Export:
-      Name: !Sub ${EnvironmentName}-AlbSecurityGroupId
 
   ApiServiceSecurityGroupId:
     Description: Security group for ECS API tasks.
     Value: !Ref ApiServiceSecurityGroup
-    Export:
-      Name: !Sub ${EnvironmentName}-ApiServiceSecurityGroupId
 
   WorkerServiceSecurityGroupId:
     Description: Security group for ECS worker tasks.
     Value: !Ref WorkerServiceSecurityGroup
-    Export:
-      Name: !Sub ${EnvironmentName}-WorkerServiceSecurityGroupId
 
   RdsSecurityGroupId:
     Description: Security group for RDS PostgreSQL.
     Value: !Ref RdsSecurityGroup
-    Export:
-      Name: !Sub ${EnvironmentName}-RdsSecurityGroupId

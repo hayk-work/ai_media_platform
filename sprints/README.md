@@ -46,4 +46,5 @@ This project is **API-only** — clients use HTTP (`curl`, Postman, `/docs`).
 ## Current status
 
 - **Sprint 02** — implemented locally (JWT auth)
-- **Sprint 03** — next up (CloudFormation network)
+- **Sprint 03** — implemented locally (CloudFormation network templates)
+- **Sprint 04** — next up (ECS Fargate API)

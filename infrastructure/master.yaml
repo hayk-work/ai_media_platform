@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Master stack for the AI Media Platform AWS network foundation.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+    Description: Prefix used across nested stacks.
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+
+  AvailabilityZone1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1a
+
+  AvailabilityZone2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-east-1b
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: network.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VpcCidr: !Ref VpcCidr
+        AvailabilityZone1: !Ref AvailabilityZone1
+        AvailabilityZone2: !Ref AvailabilityZone2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-network-stack
+
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: security.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-security-stack
+
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: iam.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-iam-stack
+
+Outputs:
+  VpcId:
+    Description: VPC identifier for ECS and RDS stacks.
+    Value: !GetAtt NetworkStack.Outputs.VpcId
+    Export:
+      Name: !Sub ${EnvironmentName}-VpcId
+
+  PublicSubnetIds:
+    Description: Public subnets for the ALB.
+    Value: !GetAtt NetworkStack.Outputs.PublicSubnetIds
+    Export:
+      Name: !Sub ${EnvironmentName}-PublicSubnetIds
+
+  PrivateSubnetIds:
+    Description: Private subnets for ECS and RDS.
+    Value: !GetAtt NetworkStack.Outputs.PrivateSubnetIds
+    Export:
+      Name: !Sub ${EnvironmentName}-PrivateSubnetIds
+
+  NatGatewayId:
+    Description: NAT gateway for private subnet egress.
+    Value: !GetAtt NetworkStack.Outputs.NatGatewayId
+    Export:
+      Name: !Sub ${EnvironmentName}-NatGatewayId
+
+  AlbSecurityGroupId:
+    Description: Security group for the ALB.
+    Value: !GetAtt SecurityStack.Outputs.AlbSecurityGroupId
+    Export:
+      Name: !Sub ${EnvironmentName}-AlbSecurityGroupId
+
+  ApiServiceSecurityGroupId:
+    Description: Security group for API ECS tasks.
+    Value: !GetAtt SecurityStack.Outputs.ApiServiceSecurityGroupId
+    Export:
+      Name: !Sub ${EnvironmentName}-ApiServiceSecurityGroupId
+
+  WorkerServiceSecurityGroupId:
+    Description: Security group for worker ECS tasks.
+    Value: !GetAtt SecurityStack.Outputs.WorkerServiceSecurityGroupId
+    Export:
+      Name: !Sub ${EnvironmentName}-WorkerServiceSecurityGroupId
+
+  RdsSecurityGroupId:
+    Description: Security group for RDS PostgreSQL.
+    Value: !GetAtt SecurityStack.Outputs.RdsSecurityGroupId
+    Export:
+      Name: !Sub ${EnvironmentName}-RdsSecurityGroupId
+
+  EcsTaskExecutionRoleArn:
+    Description: ECS task execution role ARN.
+    Value: !GetAtt IamStack.Outputs.EcsTaskExecutionRoleArn
+    Export:
+      Name: !Sub ${EnvironmentName}-EcsTaskExecutionRoleArn
+
+  EcsApiTaskRoleArn:
+    Description: ECS API task role ARN.
+    Value: !GetAtt IamStack.Outputs.EcsApiTaskRoleArn
+    Export:
+      Name: !Sub ${EnvironmentName}-EcsApiTaskRoleArn
+
+  EcsWorkerTaskRoleArn:
+    Description: ECS worker task role ARN.
+    Value: !GetAtt IamStack.Outputs.EcsWorkerTaskRoleArn
+    Export:
+      Name: !Sub ${EnvironmentName}-EcsWorkerTaskRoleArn

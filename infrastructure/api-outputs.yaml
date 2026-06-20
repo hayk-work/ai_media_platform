@@ -29,3 +29,15 @@ ApiLogGroupName:
   used_by:
     - Monitoring
     - Debugging
+
+MediaBucketName:
+  description: S3 bucket for original media uploads
+  used_by:
+    - ECS API task environment
+    - Direct upload workflow
+
+MediaBucketArn:
+  description: S3 bucket ARN for original media uploads
+  used_by:
+    - IAM policies
+    - Future worker tasks

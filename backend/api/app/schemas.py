@@ -45,6 +45,7 @@ class UploadRequest(BaseModel):
 
 class UploadResponse(BaseModel):
     media_id: uuid.UUID
+    upload_url: str | None = None
     status: MediaStatus
 
 

@@ -1,7 +1,7 @@
 # Infrastructure
 
 CloudFormation templates for the AWS network foundation (Sprint 03) and ECS API
-(Sprint 04).
+(Sprint 04) and S3 uploads (Sprint 05).
 
 ## Layout
 
@@ -16,6 +16,7 @@ infrastructure/
   ecr.yaml           ECR repository for the API image
   rds.yaml           PostgreSQL metadata database
   ecs-api.yaml       ECS Fargate service, ALB, CloudWatch Logs
+  s3.yaml            Private media upload bucket and API IAM policy
   api-outputs.yaml   Output contract for the API stack
   scripts/
     deploy.sh        Package nested templates to S3 and deploy network stack
@@ -91,8 +92,14 @@ export ENVIRONMENT_NAME=ai-media-platform
 ./infrastructure/scripts/deploy-api.sh
 ```
 
-The script builds and pushes the API Docker image to ECR, deploys RDS and ECS,
+The script builds and pushes the API Docker image to ECR, deploys RDS, S3, and ECS,
 waits for the service to stabilize, and runs a health check against the ALB.
+
+## S3 uploads (Sprint 05)
+
+`POST /uploads` creates a PostgreSQL record and returns a presigned S3 URL when
+`S3_MEDIA_BUCKET` is configured on the ECS task. The bucket is private, encrypted,
+and blocks all public access.
 
 API stack exports are listed in `api-outputs.yaml`, including:
 
@@ -100,3 +107,4 @@ API stack exports are listed in `api-outputs.yaml`, including:
 - `ApiRepositoryUri`
 - `DbEndpoint`
 - `ApiLogGroupName`
+- `MediaBucketName` / `MediaBucketArn`

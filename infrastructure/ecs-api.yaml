@@ -46,6 +46,11 @@ Parameters:
   DatabaseSecretArn:
     Type: String
 
+  MediaBucketName:
+    Type: String
+    Default: ""
+    Description: S3 bucket for original media uploads.
+
 Resources:
   ApiJwtSecret:
     Type: AWS::SecretsManager::Secret
@@ -164,6 +169,10 @@ Resources:
               Value: HS256
             - Name: JWT_EXPIRE_MINUTES
               Value: "60"
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: S3_MEDIA_BUCKET
+              Value: !Ref MediaBucketName
           Secrets:
             - Name: DB_PASSWORD
               ValueFrom: !Sub "${DatabaseSecretArn}:password::"

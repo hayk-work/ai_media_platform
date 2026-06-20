@@ -150,10 +150,35 @@ def test_api_master_nests_ecr_rds_and_ecs_api() -> None:
         for name, spec in template["Resources"].items()
         if spec["Type"] == "AWS::CloudFormation::Stack"
     }
-    assert {"EcrStack", "RdsStack", "EcsApiStack"} <= set(nested)
+    assert {"EcrStack", "RdsStack", "S3Stack", "EcsApiStack"} <= set(nested)
     assert nested["EcrStack"]["Properties"]["TemplateURL"] == "ecr.yaml"
     assert nested["RdsStack"]["Properties"]["TemplateURL"] == "rds.yaml"
+    assert nested["S3Stack"]["Properties"]["TemplateURL"] == "s3.yaml"
     assert nested["EcsApiStack"]["Properties"]["TemplateURL"] == "ecs-api.yaml"
+
+
+def test_ecs_api_receives_media_bucket_from_s3_stack() -> None:
+    template = load_template("api-master.yaml")
+    ecs_params = template["Resources"]["EcsApiStack"]["Properties"]["Parameters"]
+    assert ecs_params["MediaBucketName"] == {"Fn::GetAtt": ["S3Stack", "Outputs.MediaBucketName"]}
+
+
+def test_s3_bucket_blocks_public_access() -> None:
+    template = load_template("s3.yaml")
+    bucket = template["Resources"]["MediaBucket"]["Properties"]
+    public_access = bucket["PublicAccessBlockConfiguration"]
+    assert public_access["BlockPublicAcls"] is True
+    assert public_access["RestrictPublicBuckets"] is True
+    assert bucket["BucketEncryption"]["ServerSideEncryptionConfiguration"][0][
+        "ServerSideEncryptionByDefault"
+    ]["SSEAlgorithm"] == "AES256"
+
+
+def test_s3_template_grants_api_put_object_permission() -> None:
+    template = load_template("s3.yaml")
+    policy = template["Resources"]["ApiMediaUploadPolicy"]["Properties"]["PolicyDocument"]
+    actions = policy["Statement"][0]["Action"]
+    assert "s3:PutObject" in actions
 
 
 def test_api_master_outputs_match_contract() -> None:

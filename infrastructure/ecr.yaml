@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECR repository for the AI Media Platform API image.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+Resources:
+  ApiRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${EnvironmentName}-api
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-api
+
+Outputs:
+  ApiRepositoryUri:
+    Description: ECR repository URI without tag.
+    Value: !GetAtt ApiRepository.RepositoryUri
+
+  ApiRepositoryName:
+    Description: ECR repository name.
+    Value: !Ref ApiRepository

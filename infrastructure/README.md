@@ -1,18 +1,25 @@
 # Infrastructure
 
-CloudFormation templates for the AWS network foundation (Sprint 03).
+CloudFormation templates for the AWS network foundation (Sprint 03) and ECS API
+(Sprint 04).
 
 ## Layout
 
 ```text
 infrastructure/
-  master.yaml      Nested stack orchestration
-  network.yaml     VPC, subnets, routing, NAT gateway
-  security.yaml    Security groups for ALB, ECS, RDS
-  iam.yaml         ECS task execution and application roles
-  outputs.yaml     Output contract for later stacks
+  master.yaml        Nested stack orchestration (network foundation)
+  network.yaml       VPC, subnets, routing, NAT gateway
+  security.yaml      Security groups for ALB, ECS, RDS
+  iam.yaml           ECS task execution and application roles
+  outputs.yaml       Output contract for the network stack
+  api-master.yaml    Nested stack orchestration (ECS API)
+  ecr.yaml           ECR repository for the API image
+  rds.yaml           PostgreSQL metadata database
+  ecs-api.yaml       ECS Fargate service, ALB, CloudWatch Logs
+  api-outputs.yaml   Output contract for the API stack
   scripts/
-    deploy.sh      Package nested templates to S3 and deploy
+    deploy.sh        Package nested templates to S3 and deploy network stack
+    deploy-api.sh    Build/push API image and deploy ECS stack
   tests/
     test_cloudformation.py
 ```
@@ -71,3 +78,25 @@ Downstream stacks (ECS, RDS, S3) consume exports listed in `outputs.yaml`, inclu
 - `PublicSubnetIds` / `PrivateSubnetIds`
 - `AlbSecurityGroupId`, `ApiServiceSecurityGroupId`, `WorkerServiceSecurityGroupId`, `RdsSecurityGroupId`
 - `EcsTaskExecutionRoleArn`, `EcsApiTaskRoleArn`, `EcsWorkerTaskRoleArn`
+
+## Deploy API stack (Sprint 04)
+
+Requires the network stack to be deployed first.
+
+```bash
+export DEPLOY_BUCKET=your-cfn-artifacts-bucket
+export STACK_NAME=ai-media-platform-api
+export ENVIRONMENT_NAME=ai-media-platform
+
+./infrastructure/scripts/deploy-api.sh
+```
+
+The script builds and pushes the API Docker image to ECR, deploys RDS and ECS,
+waits for the service to stabilize, and runs a health check against the ALB.
+
+API stack exports are listed in `api-outputs.yaml`, including:
+
+- `ApiLoadBalancerUrl`
+- `ApiRepositoryUri`
+- `DbEndpoint`
+- `ApiLogGroupName`

@@ -1,0 +1,31 @@
+# Stack output contract for the ECS API stack (Sprint 04).
+# These keys are exported by infrastructure/api-master.yaml.
+
+ApiRepositoryUri:
+  description: ECR repository URI for the API Docker image
+  used_by:
+    - CI/CD image pushes
+
+ApiLoadBalancerDnsName:
+  description: Public DNS name for the API load balancer
+  used_by:
+    - Client applications
+    - Integration tests
+
+ApiLoadBalancerUrl:
+  description: HTTP URL for the public API endpoint
+  used_by:
+    - Health checks
+    - Demo requests
+
+DbEndpoint:
+  description: RDS PostgreSQL endpoint hostname
+  used_by:
+    - Operations
+    - Future read replicas
+
+ApiLogGroupName:
+  description: CloudWatch log group for API container logs
+  used_by:
+    - Monitoring
+    - Debugging

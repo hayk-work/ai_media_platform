@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Master stack for the AI Media Platform ECS API (Sprint 04).
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  ApiImageUri:
+    Type: String
+    Description: Full ECR image URI including tag.
+
+  ApiDesiredCount:
+    Type: Number
+    Default: 1
+    Description: Number of running API tasks.
+
+Resources:
+  EcrStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ecr.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-ecr-stack
+
+  RdsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: rds.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        PrivateSubnetIds:
+          Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnetIds
+        RdsSecurityGroupId:
+          Fn::ImportValue: !Sub ${EnvironmentName}-RdsSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-rds-stack
+
+  EcsApiStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: RdsStack
+    Properties:
+      TemplateURL: ecs-api.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VpcId:
+          Fn::ImportValue: !Sub ${EnvironmentName}-VpcId
+        PublicSubnetIds:
+          Fn::ImportValue: !Sub ${EnvironmentName}-PublicSubnetIds
+        PrivateSubnetIds:
+          Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnetIds
+        AlbSecurityGroupId:
+          Fn::ImportValue: !Sub ${EnvironmentName}-AlbSecurityGroupId
+        ApiServiceSecurityGroupId:
+          Fn::ImportValue: !Sub ${EnvironmentName}-ApiServiceSecurityGroupId
+        EcsTaskExecutionRoleArn:
+          Fn::ImportValue: !Sub ${EnvironmentName}-EcsTaskExecutionRoleArn
+        EcsApiTaskRoleArn:
+          Fn::ImportValue: !Sub ${EnvironmentName}-EcsApiTaskRoleArn
+        ApiImageUri: !Ref ApiImageUri
+        ApiDesiredCount: !Ref ApiDesiredCount
+        DbHost: !GetAtt RdsStack.Outputs.DbEndpoint
+        DbPort: !GetAtt RdsStack.Outputs.DbPort
+        DatabaseSecretArn: !GetAtt RdsStack.Outputs.DatabaseSecretArn
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-ecs-api-stack
+
+Outputs:
+  ApiRepositoryUri:
+    Description: ECR repository URI for the API image.
+    Value: !GetAtt EcrStack.Outputs.ApiRepositoryUri
+    Export:
+      Name: !Sub ${EnvironmentName}-ApiRepositoryUri
+
+  ApiLoadBalancerDnsName:
+    Description: Public DNS name for the API load balancer.
+    Value: !GetAtt EcsApiStack.Outputs.ApiLoadBalancerDnsName
+    Export:
+      Name: !Sub ${EnvironmentName}-ApiLoadBalancerDnsName
+
+  ApiLoadBalancerUrl:
+    Description: HTTP URL for the public API endpoint.
+    Value: !GetAtt EcsApiStack.Outputs.ApiLoadBalancerUrl
+    Export:
+      Name: !Sub ${EnvironmentName}-ApiLoadBalancerUrl
+
+  DbEndpoint:
+    Description: RDS endpoint hostname.
+    Value: !GetAtt RdsStack.Outputs.DbEndpoint
+    Export:
+      Name: !Sub ${EnvironmentName}-DbEndpoint
+
+  ApiLogGroupName:
+    Description: CloudWatch log group for API container logs.
+    Value: !GetAtt EcsApiStack.Outputs.ApiLogGroupName
+    Export:
+      Name: !Sub ${EnvironmentName}-ApiLogGroupName

@@ -4,6 +4,7 @@ import signal
 import structlog
 from common.config import settings
 from common.logging import configure_logging
+from app.processor import poll_and_process_once
 
 configure_logging()
 logger = structlog.get_logger(__name__)
@@ -17,24 +18,26 @@ def _handle_shutdown(signum: int, _frame: object) -> None:
     _shutdown = True
 
 
-async def process_message(payload: dict) -> None:
-    """Placeholder for future SQS message handling."""
-    logger.info("process_message_placeholder", payload=payload)
-
-
 async def run_worker() -> None:
     logger.info(
         "worker_started",
         environment=settings.environment,
-        message="Waiting for SQS messages (not connected in Sprint 01).",
+        queue_configured=bool(settings.sqs_processing_queue_url),
+        bucket=settings.s3_media_bucket or None,
     )
 
     while not _shutdown:
-        logger.info("worker_idle", status="polling_placeholder")
-        try:
-            await asyncio.sleep(5)
-        except asyncio.CancelledError:
-            break
+        if not settings.sqs_processing_queue_url:
+            logger.info("worker_idle", reason="sqs_processing_queue_url not configured")
+            try:
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                break
+            continue
+
+        processed = await poll_and_process_once()
+        if processed == 0:
+            logger.debug("worker_poll_empty")
 
     logger.info("worker_stopped")
 

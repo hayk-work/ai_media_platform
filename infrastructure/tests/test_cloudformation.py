@@ -150,11 +150,56 @@ def test_api_master_nests_ecr_rds_and_ecs_api() -> None:
         for name, spec in template["Resources"].items()
         if spec["Type"] == "AWS::CloudFormation::Stack"
     }
-    assert {"EcrStack", "RdsStack", "S3Stack", "EcsApiStack"} <= set(nested)
+    assert {"EcrStack", "RdsStack", "S3Stack", "ProcessingStack", "EcsApiStack", "EcsWorkerStack"} <= set(
+        nested
+    )
+    assert nested["ProcessingStack"]["Properties"]["TemplateURL"] == "processing.yaml"
+    assert nested["EcsWorkerStack"]["Properties"]["TemplateURL"] == "ecs-worker.yaml"
     assert nested["EcrStack"]["Properties"]["TemplateURL"] == "ecr.yaml"
     assert nested["RdsStack"]["Properties"]["TemplateURL"] == "rds.yaml"
     assert nested["S3Stack"]["Properties"]["TemplateURL"] == "s3.yaml"
     assert nested["EcsApiStack"]["Properties"]["TemplateURL"] == "ecs-api.yaml"
+
+
+def test_processing_stack_routes_s3_events_to_sqs() -> None:
+    template = load_template("processing.yaml")
+    types = resource_types(template)
+    assert "AWS::SQS::Queue" in types
+    assert "AWS::Events::Rule" in types
+    assert "AWS::IAM::Policy" in types
+    rule = template["Resources"]["UploadProcessingRule"]["Properties"]
+    assert rule["EventPattern"]["detail-type"] == ["Object Created"]
+
+
+def test_ecs_worker_template_defines_worker_service() -> None:
+    template = load_template("ecs-worker.yaml")
+    types = resource_types(template)
+    assert {"AWS::ECS::TaskDefinition", "AWS::ECS::Service", "AWS::Logs::LogGroup"} <= types
+
+
+def test_ecs_worker_receives_processing_queue_url() -> None:
+    template = load_template("api-master.yaml")
+    worker_params = template["Resources"]["EcsWorkerStack"]["Properties"]["Parameters"]
+    assert worker_params["ProcessingQueueUrl"] == {
+        "Fn::GetAtt": ["ProcessingStack", "Outputs.ProcessingQueueUrl"]
+    }
+
+
+def test_s3_bucket_enables_eventbridge_notifications() -> None:
+    template = load_template("s3.yaml")
+    bucket = template["Resources"]["MediaBucket"]["Properties"]
+    assert bucket["NotificationConfiguration"]["EventBridgeConfiguration"]["EventBridgeEnabled"] is True
+
+
+def test_ecr_template_defines_worker_repository() -> None:
+    template = load_template("ecr.yaml")
+    assert "AWS::ECR::Repository" in resource_types(template)
+    repositories = [
+        name
+        for name, spec in template["Resources"].items()
+        if spec["Type"] == "AWS::ECR::Repository"
+    ]
+    assert any("Worker" in name for name in repositories)
 
 
 def test_ecs_api_receives_media_bucket_from_s3_stack() -> None:

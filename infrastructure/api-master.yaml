@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Master stack for the AI Media Platform ECS API (Sprint 04).
+Description: Master stack for the AI Media Platform ECS API and async worker.
 
 Parameters:
   EnvironmentName:
@@ -10,10 +10,19 @@ Parameters:
     Type: String
     Description: Full ECR image URI including tag.
 
+  WorkerImageUri:
+    Type: String
+    Description: Full ECR worker image URI including tag.
+
   ApiDesiredCount:
     Type: Number
     Default: 1
     Description: Number of running API tasks.
+
+  WorkerDesiredCount:
+    Type: Number
+    Default: 1
+    Description: Number of running worker tasks.
 
 Resources:
   EcrStack:
@@ -50,6 +59,19 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-s3-stack
 
+  ProcessingStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: S3Stack
+    Properties:
+      TemplateURL: processing.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        MediaBucketName: !GetAtt S3Stack.Outputs.MediaBucketName
+        MediaBucketArn: !GetAtt S3Stack.Outputs.MediaBucketArn
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-processing-stack
+
   EcsApiStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -82,6 +104,36 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-api-stack
+
+  EcsWorkerStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ProcessingStack
+      - RdsStack
+      - EcsApiStack
+    Properties:
+      TemplateURL: ecs-worker.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        PrivateSubnetIds:
+          Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnetIds
+        WorkerServiceSecurityGroupId:
+          Fn::ImportValue: !Sub ${EnvironmentName}-WorkerServiceSecurityGroupId
+        EcsTaskExecutionRoleArn:
+          Fn::ImportValue: !Sub ${EnvironmentName}-EcsTaskExecutionRoleArn
+        EcsWorkerTaskRoleArn:
+          Fn::ImportValue: !Sub ${EnvironmentName}-EcsWorkerTaskRoleArn
+        WorkerImageUri: !Ref WorkerImageUri
+        WorkerDesiredCount: !Ref WorkerDesiredCount
+        ApiClusterName: !Sub ${EnvironmentName}-cluster
+        DbHost: !GetAtt RdsStack.Outputs.DbEndpoint
+        DbPort: !GetAtt RdsStack.Outputs.DbPort
+        DatabaseSecretArn: !GetAtt RdsStack.Outputs.DatabaseSecretArn
+        MediaBucketName: !GetAtt S3Stack.Outputs.MediaBucketName
+        ProcessingQueueUrl: !GetAtt ProcessingStack.Outputs.ProcessingQueueUrl
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-ecs-worker-stack
 
 Outputs:
   ApiRepositoryUri:
@@ -125,3 +177,15 @@ Outputs:
     Value: !GetAtt S3Stack.Outputs.MediaBucketArn
     Export:
       Name: !Sub ${EnvironmentName}-MediaBucketArn
+
+  ProcessingQueueUrl:
+    Description: SQS queue URL for media processing jobs.
+    Value: !GetAtt ProcessingStack.Outputs.ProcessingQueueUrl
+    Export:
+      Name: !Sub ${EnvironmentName}-ProcessingQueueUrl
+
+  WorkerLogGroupName:
+    Description: CloudWatch log group for worker container logs.
+    Value: !GetAtt EcsWorkerStack.Outputs.WorkerLogGroupName
+    Export:
+      Name: !Sub ${EnvironmentName}-WorkerLogGroupName

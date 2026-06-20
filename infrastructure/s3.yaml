@@ -33,6 +33,9 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-media
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   ApiMediaUploadPolicy:
     Type: AWS::IAM::Policy

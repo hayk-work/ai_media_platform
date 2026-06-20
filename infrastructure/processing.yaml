@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: EventBridge and SQS processing pipeline for S3 upload events.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  MediaBucketName:
+    Type: String
+    Description: S3 bucket that emits Object Created events.
+
+  MediaBucketArn:
+    Type: String
+    Description: S3 bucket ARN for IAM policies.
+
+Resources:
+  ProcessingDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${EnvironmentName}-processing-dlq
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-processing-dlq
+
+  ProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${EnvironmentName}-processing
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ProcessingDeadLetterQueue.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-processing
+
+  UploadProcessingRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-s3-upload-processing
+      Description: Route S3 upload Object Created events to the processing queue.
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+        detail:
+          bucket:
+            name:
+              - !Ref MediaBucketName
+          object:
+            key:
+              - prefix: uploads/
+      State: ENABLED
+      Targets:
+        - Id: ProcessingQueueTarget
+          Arn: !GetAtt ProcessingQueue.Arn
+
+  ProcessingQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ProcessingQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt UploadProcessingRule.Arn
+
+  WorkerMediaProcessingPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-worker-media-processing
+      Roles:
+        - !Sub ${EnvironmentName}-ecs-worker-task-role
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:ChangeMessageVisibility
+            Resource: !GetAtt ProcessingQueue.Arn
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub ${MediaBucketArn}/uploads/*
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub ${MediaBucketArn}/thumbnails/*
+
+Outputs:
+  ProcessingQueueUrl:
+    Description: SQS queue URL for media processing jobs.
+    Value: !Ref ProcessingQueue
+
+  ProcessingQueueArn:
+    Description: SQS queue ARN.
+    Value: !GetAtt ProcessingQueue.Arn
+
+  ProcessingDeadLetterQueueUrl:
+    Description: Dead-letter queue URL for failed processing jobs.
+    Value: !Ref ProcessingDeadLetterQueue
+
+  UploadProcessingRuleName:
+    Description: EventBridge rule name for S3 upload events.
+    Value: !Ref UploadProcessingRule

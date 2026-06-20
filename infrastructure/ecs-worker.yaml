@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS Fargate worker service for async media processing.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+
+  WorkerServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  EcsTaskExecutionRoleArn:
+    Type: String
+
+  EcsWorkerTaskRoleArn:
+    Type: String
+
+  WorkerImageUri:
+    Type: String
+    Description: Full ECR worker image URI including tag.
+
+  WorkerDesiredCount:
+    Type: Number
+    Default: 1
+
+  ApiClusterName:
+    Type: String
+    Description: Existing ECS cluster shared with the API service.
+
+  DbHost:
+    Type: String
+
+  DbPort:
+    Type: String
+    Default: "5432"
+
+  DatabaseSecretArn:
+    Type: String
+
+  MediaBucketName:
+    Type: String
+
+  ProcessingQueueUrl:
+    Type: String
+
+Resources:
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${EnvironmentName}-worker
+      RetentionInDays: 14
+
+  WorkerExecutionSecretsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-ecs-worker-secrets
+      Roles:
+        - !Select [1, !Split ["/", !Ref EcsTaskExecutionRoleArn]]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Ref DatabaseSecretArn
+
+  WorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${EnvironmentName}-worker
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref EcsTaskExecutionRoleArn
+      TaskRoleArn: !Ref EcsWorkerTaskRoleArn
+      ContainerDefinitions:
+        - Name: worker
+          Image: !Ref WorkerImageUri
+          Essential: true
+          Environment:
+            - Name: ENVIRONMENT
+              Value: production
+            - Name: LOG_LEVEL
+              Value: INFO
+            - Name: DB_HOST
+              Value: !Ref DbHost
+            - Name: DB_PORT
+              Value: !Ref DbPort
+            - Name: DB_USER
+              Value: amp
+            - Name: DB_NAME
+              Value: ai_media_platform
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: S3_MEDIA_BUCKET
+              Value: !Ref MediaBucketName
+            - Name: SQS_PROCESSING_QUEUE_URL
+              Value: !Ref ProcessingQueueUrl
+          Secrets:
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub "${DatabaseSecretArn}:password::"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref WorkerLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: worker
+
+  WorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${EnvironmentName}-worker
+      Cluster: !Ref ApiClusterName
+      LaunchType: FARGATE
+      DesiredCount: !Ref WorkerDesiredCount
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref WorkerServiceSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+      TaskDefinition: !Ref WorkerTaskDefinition
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-worker
+
+Outputs:
+  WorkerServiceName:
+    Description: ECS worker service name.
+    Value: !GetAtt WorkerService.Name
+
+  WorkerLogGroupName:
+    Description: CloudWatch log group for worker container logs.
+    Value: !Ref WorkerLogGroup

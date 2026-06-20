@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     s3_media_bucket: str = ""
     s3_presign_expires_seconds: int = 900
+    sqs_processing_queue_url: str = ""
+    worker_poll_wait_seconds: int = 20
+    worker_max_messages: int = 1
 
     @property
     def resolved_database_url(self) -> str:

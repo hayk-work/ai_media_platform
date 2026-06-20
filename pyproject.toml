@@ -35,8 +35,8 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["backend/api/tests", "infrastructure/tests"]
-pythonpath = ["backend", "backend/api"]
+testpaths = ["backend/api/tests", "backend/worker/tests", "infrastructure/tests"]
+pythonpath = ["backend", "backend/api", "backend/worker"]
 markers = [
     "integration: tests that require a running PostgreSQL database",
 ]

@@ -18,6 +18,17 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-api
 
+  WorkerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub ${EnvironmentName}-worker
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-worker
+
 Outputs:
   ApiRepositoryUri:
     Description: ECR repository URI without tag.
@@ -26,3 +37,11 @@ Outputs:
   ApiRepositoryName:
     Description: ECR repository name.
     Value: !Ref ApiRepository
+
+  WorkerRepositoryUri:
+    Description: ECR repository URI for the worker image.
+    Value: !GetAtt WorkerRepository.RepositoryUri
+
+  WorkerRepositoryName:
+    Description: ECR repository name for the worker image.
+    Value: !Ref WorkerRepository

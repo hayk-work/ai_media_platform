@@ -40,4 +40,15 @@ MediaBucketArn:
   description: S3 bucket ARN for original media uploads
   used_by:
     - IAM policies
-    - Future worker tasks
+    - Worker tasks
+
+ProcessingQueueUrl:
+  description: SQS queue URL for media processing jobs
+  used_by:
+    - ECS worker task environment
+
+WorkerLogGroupName:
+  description: CloudWatch log group for worker container logs
+  used_by:
+    - Monitoring
+    - Debugging

@@ -40,9 +40,21 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-rds-stack
 
+  S3Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: s3.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-s3-stack
+
   EcsApiStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: RdsStack
+    DependsOn:
+      - RdsStack
+      - S3Stack
     Properties:
       TemplateURL: ecs-api.yaml
       Parameters:
@@ -66,6 +78,7 @@ Resources:
         DbHost: !GetAtt RdsStack.Outputs.DbEndpoint
         DbPort: !GetAtt RdsStack.Outputs.DbPort
         DatabaseSecretArn: !GetAtt RdsStack.Outputs.DatabaseSecretArn
+        MediaBucketName: !GetAtt S3Stack.Outputs.MediaBucketName
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-api-stack
@@ -100,3 +113,15 @@ Outputs:
     Value: !GetAtt EcsApiStack.Outputs.ApiLogGroupName
     Export:
       Name: !Sub ${EnvironmentName}-ApiLogGroupName
+
+  MediaBucketName:
+    Description: S3 bucket for original media uploads.
+    Value: !GetAtt S3Stack.Outputs.MediaBucketName
+    Export:
+      Name: !Sub ${EnvironmentName}-MediaBucketName
+
+  MediaBucketArn:
+    Description: S3 bucket ARN for original media uploads.
+    Value: !GetAtt S3Stack.Outputs.MediaBucketArn
+    Export:
+      Name: !Sub ${EnvironmentName}-MediaBucketArn

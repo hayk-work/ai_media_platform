@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "local-dev-jwt-secret-change-in-production-32b"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    aws_region: str = "us-east-1"
+    s3_media_bucket: str = ""
+    s3_presign_expires_seconds: int = 900
 
     @property
     def resolved_database_url(self) -> str:

@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS Fargate API service, ALB, and CloudWatch logging.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PublicSubnetIds:
+    Type: CommaDelimitedList
+
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+
+  AlbSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  ApiServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  EcsTaskExecutionRoleArn:
+    Type: String
+
+  EcsApiTaskRoleArn:
+    Type: String
+
+  ApiImageUri:
+    Type: String
+    Description: Full ECR image URI including tag.
+
+  ApiDesiredCount:
+    Type: Number
+    Default: 1
+    Description: Number of API tasks to run.
+
+  DbHost:
+    Type: String
+
+  DbPort:
+    Type: String
+    Default: "5432"
+
+  DatabaseSecretArn:
+    Type: String
+
+Resources:
+  ApiJwtSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${EnvironmentName}/api/jwt-secret
+      Description: JWT signing secret for the API service.
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludePunctuation: true
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${EnvironmentName}-api
+      RetentionInDays: 14
+
+  EcsExecutionSecretsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-ecs-api-secrets
+      Roles:
+        - !Select [1, !Split ["/", !Ref EcsTaskExecutionRoleArn]]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Ref DatabaseSecretArn
+              - !Ref ApiJwtSecret
+
+  ApiCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${EnvironmentName}-cluster
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-cluster
+
+  ApiLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-api-alb
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref AlbSecurityGroupId
+      Subnets: !Ref PublicSubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-api-alb
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${EnvironmentName}-api-tg
+      Port: 8000
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-api-tg
+
+  ApiListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApiLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${EnvironmentName}-api
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref EcsTaskExecutionRoleArn
+      TaskRoleArn: !Ref EcsApiTaskRoleArn
+      ContainerDefinitions:
+        - Name: api
+          Image: !Ref ApiImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+          Environment:
+            - Name: ENVIRONMENT
+              Value: production
+            - Name: LOG_LEVEL
+              Value: INFO
+            - Name: DB_HOST
+              Value: !Ref DbHost
+            - Name: DB_PORT
+              Value: !Ref DbPort
+            - Name: DB_USER
+              Value: amp
+            - Name: DB_NAME
+              Value: ai_media_platform
+            - Name: JWT_ALGORITHM
+              Value: HS256
+            - Name: JWT_EXPIRE_MINUTES
+              Value: "60"
+          Secrets:
+            - Name: DB_PASSWORD
+              ValueFrom: !Sub "${DatabaseSecretArn}:password::"
+            - Name: JWT_SECRET
+              ValueFrom: !Ref ApiJwtSecret
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApiLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+
+  ApiService:
+    Type: AWS::ECS::Service
+    DependsOn: ApiListener
+    Properties:
+      ServiceName: !Sub ${EnvironmentName}-api
+      Cluster: !Ref ApiCluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref ApiDesiredCount
+      HealthCheckGracePeriodSeconds: 120
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref ApiServiceSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+      LoadBalancers:
+        - ContainerName: api
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ApiTargetGroup
+      TaskDefinition: !Ref ApiTaskDefinition
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-api
+
+Outputs:
+  ApiLoadBalancerDnsName:
+    Description: Public DNS name for the API load balancer.
+    Value: !GetAtt ApiLoadBalancer.DNSName
+
+  ApiLoadBalancerUrl:
+    Description: HTTP URL for the public API endpoint.
+    Value: !Sub http://${ApiLoadBalancer.DNSName}
+
+  ApiClusterName:
+    Description: ECS cluster name.
+    Value: !Ref ApiCluster
+
+  ApiServiceName:
+    Description: ECS service name.
+    Value: !GetAtt ApiService.Name
+
+  ApiLogGroupName:
+    Description: CloudWatch log group for API container logs.
+    Value: !Ref ApiLogGroup
+
+  ApiJwtSecretArn:
+    Description: Secrets Manager ARN for the API JWT secret.
+    Value: !Ref ApiJwtSecret

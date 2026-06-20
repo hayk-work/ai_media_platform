@@ -39,6 +39,7 @@ CloudFormationLoader.add_constructor("!GetAtt", _construct_getatt)
 CloudFormationLoader.add_constructor("!Sub", _construct_sub)
 CloudFormationLoader.add_constructor("!Join", _construct_sequence_intrinsic("Fn::Join"))
 CloudFormationLoader.add_constructor("!Select", _construct_sequence_intrinsic("Fn::Select"))
+CloudFormationLoader.add_constructor("!Split", _construct_sequence_intrinsic("Fn::Split"))
 CloudFormationLoader.add_constructor("!Cidr", _construct_sequence_intrinsic("Fn::Cidr"))
 
 
@@ -140,6 +141,60 @@ def test_master_exports_values_for_downstream_stacks() -> None:
     outputs = load_template("master.yaml")["Outputs"]
     for key in ("VpcId", "PrivateSubnetIds", "EcsApiTaskRoleArn", "RdsSecurityGroupId"):
         assert "Export" in outputs[key]
+
+
+def test_api_master_nests_ecr_rds_and_ecs_api() -> None:
+    template = load_template("api-master.yaml")
+    nested = {
+        name: spec
+        for name, spec in template["Resources"].items()
+        if spec["Type"] == "AWS::CloudFormation::Stack"
+    }
+    assert {"EcrStack", "RdsStack", "EcsApiStack"} <= set(nested)
+    assert nested["EcrStack"]["Properties"]["TemplateURL"] == "ecr.yaml"
+    assert nested["RdsStack"]["Properties"]["TemplateURL"] == "rds.yaml"
+    assert nested["EcsApiStack"]["Properties"]["TemplateURL"] == "ecs-api.yaml"
+
+
+def test_api_master_outputs_match_contract() -> None:
+    api_outputs = set(load_template("api-master.yaml").get("Outputs", {}))
+    contract = yaml.safe_load((INFRA_DIR / "api-outputs.yaml").read_text(encoding="utf-8"))
+    required_outputs = set(contract)
+    assert required_outputs <= api_outputs
+
+
+def test_ecs_api_template_defines_alb_ecs_and_logs() -> None:
+    template = load_template("ecs-api.yaml")
+    types = resource_types(template)
+    expected = {
+        "AWS::ECS::Cluster",
+        "AWS::ECS::TaskDefinition",
+        "AWS::ECS::Service",
+        "AWS::ElasticLoadBalancingV2::LoadBalancer",
+        "AWS::ElasticLoadBalancingV2::TargetGroup",
+        "AWS::ElasticLoadBalancingV2::Listener",
+        "AWS::Logs::LogGroup",
+    }
+    missing = expected - types
+    assert not missing, f"ecs-api.yaml missing resource types: {missing}"
+
+
+def test_ecs_api_health_check_uses_health_endpoint() -> None:
+    template = load_template("ecs-api.yaml")
+    target_group = template["Resources"]["ApiTargetGroup"]["Properties"]
+    assert target_group["HealthCheckPath"] == "/health"
+    assert target_group["Matcher"]["HttpCode"] == "200"
+
+
+def test_rds_is_not_publicly_accessible() -> None:
+    template = load_template("rds.yaml")
+    db = template["Resources"]["DatabaseInstance"]["Properties"]
+    assert db["PubliclyAccessible"] is False
+
+
+def test_ecr_template_defines_repository() -> None:
+    template = load_template("ecr.yaml")
+    assert "AWS::ECR::Repository" in resource_types(template)
 
 
 def test_security_stack_receives_vpc_id_from_network_stack() -> None:

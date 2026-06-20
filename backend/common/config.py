@@ -7,9 +7,23 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://amp:amp@localhost:5432/ai_media_platform"
+    db_host: str = ""
+    db_port: int = 5432
+    db_user: str = "amp"
+    db_password: str = ""
+    db_name: str = "ai_media_platform"
     jwt_secret: str = "local-dev-jwt-secret-change-in-production-32b"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+
+    @property
+    def resolved_database_url(self) -> str:
+        if self.db_host:
+            return (
+                f"postgresql+asyncpg://{self.db_user}:{self.db_password}"
+                f"@{self.db_host}:{self.db_port}/{self.db_name}"
+            )
+        return self.database_url
 
 
 settings = Settings()

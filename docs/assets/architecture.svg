@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 420" font-family="system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="920" height="420" fill="#f8fafc"/>
+  <text x="460" y="28" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">AI Media Platform  AWS Architecture</text>
+
+  <rect x="30" y="60" width="130" height="50" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="95" y="90" text-anchor="middle" font-size="13" fill="#1e3a8a">Client / curl</text>
+
+  <rect x="210" y="60" width="150" height="50" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="285" y="90" text-anchor="middle" font-size="13" fill="#1e3a8a">CloudFront CDN</text>
+
+  <rect x="410" y="60" width="150" height="50" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="485" y="90" text-anchor="middle" font-size="13" fill="#14532d">ECS API (FastAPI)</text>
+
+  <rect x="610" y="45" width="130" height="40" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="675" y="70" text-anchor="middle" font-size="12" fill="#92400e">RDS PostgreSQL</text>
+
+  <rect x="610" y="95" width="130" height="40" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="675" y="120" text-anchor="middle" font-size="12" fill="#92400e">S3 (media)</text>
+
+  <rect x="410" y="170" width="150" height="50" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="485" y="200" text-anchor="middle" font-size="13" fill="#14532d">ECS Worker</text>
+
+  <rect x="210" y="170" width="150" height="50" rx="8" fill="#fce7f3" stroke="#db2777"/>
+  <text x="285" y="200" text-anchor="middle" font-size="13" fill="#831843">SQS Queue</text>
+
+  <rect x="30" y="170" width="130" height="50" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="95" y="200" text-anchor="middle" font-size="13" fill="#4c1d95">EventBridge</text>
+
+  <rect x="610" y="170" width="130" height="50" rx="8" fill="#fce7f3" stroke="#db2777"/>
+  <text x="675" y="200" text-anchor="middle" font-size="13" fill="#831843">SNS notify</text>
+
+  <rect x="410" y="280" width="150" height="50" rx="8" fill="#e0e7ff" stroke="#4f46e5"/>
+  <text x="485" y="305" text-anchor="middle" font-size="12" fill="#312e81">Groq AI (LangGraph)</text>
+
+  <rect x="30" y="320" width="180" height="50" rx="8" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="120" y="350" text-anchor="middle" font-size="12" fill="#334155">CloudWatch + CloudTrail</text>
+
+  <rect x="240" y="320" width="180" height="50" rx="8" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="330" y="350" text-anchor="middle" font-size="12" fill="#334155">AWS Budget alerts</text>
+
+  <line x1="160" y1="85" x2="210" y2="85" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="360" y1="85" x2="410" y2="85" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="560" y1="75" x2="610" y2="65" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="560" y1="95" x2="610" y2="115" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="485" y1="110" x2="485" y2="170" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="160" y1="195" x2="210" y2="195" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="360" y1="195" x2="410" y2="195" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="560" y1="195" x2="610" y2="195" stroke="#475569" marker-end="url(#arrow)"/>
+  <line x1="485" y1="220" x2="485" y2="280" stroke="#475569" marker-end="url(#arrow)"/>
+</svg>

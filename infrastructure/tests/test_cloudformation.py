@@ -444,6 +444,25 @@ def test_master_stack_nests_cloudtrail() -> None:
     assert nested["CloudTrailStack"]["Properties"]["TemplateURL"] == "cloudtrail.yaml"
 
 
+def test_budget_template_defines_monthly_cost_budget() -> None:
+    template = load_template("budget.yaml")
+    assert "AWS::Budgets::Budget" in resource_types(template)
+    budget = template["Resources"]["MonthlyCostBudget"]["Properties"]["Budget"]
+    assert budget["BudgetType"] == "COST"
+    assert budget["TimeUnit"] == "MONTHLY"
+
+
+def test_master_stack_nests_budget() -> None:
+    template = load_template("master.yaml")
+    nested = {
+        name: spec
+        for name, spec in template["Resources"].items()
+        if spec["Type"] == "AWS::CloudFormation::Stack"
+    }
+    assert "BudgetStack" in nested
+    assert nested["BudgetStack"]["Properties"]["TemplateURL"] == "budget.yaml"
+
+
 def test_api_master_nests_monitoring_stack() -> None:
     template = load_template("api-master.yaml")
     nested = {

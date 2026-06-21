@@ -21,6 +21,7 @@ infrastructure/
   ecs-worker.yaml    ECS Fargate worker service and CloudWatch Logs
   monitoring.yaml    CloudWatch log groups, metrics alarms, and SNS hooks
   cloudtrail.yaml    CloudTrail audit trail and private audit S3 bucket
+  budget.yaml        Monthly AWS cost budget with email threshold alerts
   api-outputs.yaml   Output contract for the API stack
   scripts/
     deploy.sh        Package nested templates to S3 and deploy network stack
@@ -138,6 +139,22 @@ Alarms optionally publish to the processing notification SNS topic.
 
 The CloudTrail stack creates a private audit bucket and enables management event
 logging with log file validation.
+
+The budget stack creates a monthly AWS cost budget (default **$50 USD**) with
+optional email alerts at **80%** and **100%** of the limit:
+
+```bash
+export BUDGET_NOTIFICATION_EMAIL=you@example.com
+./infrastructure/scripts/deploy.sh
+```
+
+Verify the budget after deploy:
+
+```bash
+aws budgets describe-budget \
+  --account-id "$(aws sts get-caller-identity --query Account --output text)" \
+  --budget-name ai-media-platform-monthly-cost
+```
 
 Structured application logs include:
 

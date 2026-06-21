@@ -1,32 +1,121 @@
 # AI Media Processing Platform
 
-A mini Google Photos–style platform where users upload images or videos, AWS
-processes them asynchronously, and users view thumbnails, metadata, and AI analysis
-results.
+[![CI](https://github.com/hayk-work/ai_media_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/hayk-work/ai_media_platform/actions/workflows/ci.yml)
 
-Sprint 01 establishes the local foundation: API, worker placeholder, PostgreSQL
-schema, and Docker-based development. This project is **API-only** — clients use
-HTTP (`curl`, Postman, mobile apps, etc.) or the built-in Swagger UI at `/docs`.
+A mini Google Photos–style platform: users upload images, AWS processes them
+asynchronously, and clients receive thumbnails, metadata, and AI-generated captions
+and tags.
 
-## Architecture (Sprint 01)
+Built as a **production-minded AWS portfolio project** with Infrastructure as Code,
+async workers, CDN delivery, monitoring, audit logging, and automated tests.
 
-```text
-API clients (curl, Postman, /docs)
-   |
-   v
-Backend API (FastAPI)
-   |
-   +--> PostgreSQL
-   |
-   +--> Worker placeholder (future SQS consumer)
+## Live demo
+
+| Resource | URL |
+| -------- | --- |
+| **API (HTTPS via CloudFront)** | https://d2rhsorulu1z8s.cloudfront.net |
+| **Swagger UI** | https://d2rhsorulu1z8s.cloudfront.net/docs |
+| **Health check** | https://d2rhsorulu1z8s.cloudfront.net/health |
+| **ALB (direct HTTP)** | http://ai-media-platform-api-alb-458236488.us-east-1.elb.amazonaws.com |
+
+Try the automated demo script:
+
+```bash
+chmod +x scripts/demo.sh
+./scripts/demo.sh
 ```
 
-## Prerequisites
+See [docs/demo.md](docs/demo.md) for the full upload → process → AI flow and how to
+record a terminal GIF for your portfolio.
 
-- Docker and Docker Compose
-- Python 3.13+ (for local development without Docker)
+![Demo flow](docs/assets/demo-flow.svg)
 
-## Quick start
+## Architecture
+
+![Architecture diagram](docs/assets/architecture.svg)
+
+```mermaid
+flowchart TB
+    Client[curl / mobile / Swagger]
+    CF[CloudFront CDN]
+    ALB[Application Load Balancer]
+    API[ECS API — FastAPI]
+    Worker[ECS Worker]
+    S3[(S3 media bucket)]
+    SQS[SQS processing queue]
+    EB[EventBridge S3 events]
+    RDS[(RDS PostgreSQL)]
+    SNS[SNS notifications]
+    AI[Groq + LangGraph]
+    CW[CloudWatch alarms]
+    CT[CloudTrail audit]
+    Budget[AWS Budget alerts]
+
+    Client --> CF --> ALB --> API
+    API --> RDS
+    API --> S3
+    S3 --> EB --> SQS --> Worker
+    Worker --> S3
+    Worker --> RDS
+    Worker --> AI
+    Worker --> SNS
+    API --> CW
+    Worker --> CW
+    CT -.-> CW
+    Budget -.-> CW
+```
+
+### What happens on upload
+
+1. Client registers/logs in (JWT).
+2. API creates a media record and returns a **presigned S3 URL**.
+3. Client uploads directly to S3.
+4. **EventBridge** routes the S3 event to **SQS**.
+5. **Worker** generates a thumbnail, runs **AI analysis**, updates RDS, and sends
+   **SNS** notification.
+6. Client lists media and receives a **CloudFront** thumbnail URL.
+
+## Tech stack
+
+| Layer | Technology |
+| ----- | ---------- |
+| API | FastAPI, SQLAlchemy, Alembic, JWT |
+| Worker | Async SQS consumer, Pillow |
+| AI | LangGraph workflow, Groq vision model |
+| Data | PostgreSQL (RDS), S3 |
+| AWS | ECS Fargate, ALB, CloudFront, SQS, SNS, EventBridge |
+| Ops | CloudWatch alarms, structured logs, CloudTrail, AWS Budgets |
+| IaC | CloudFormation nested stacks |
+| Local dev | Docker Compose |
+| CI | GitHub Actions (pytest + ruff) |
+
+## Monitoring and cost alerts
+
+The platform includes operational visibility from Sprint 10:
+
+**CloudWatch alarms** (via `infrastructure/monitoring.yaml`):
+
+- SQS backlog and oldest message age
+- API target 5xx errors
+- RDS CPU and connection count
+
+**CloudTrail** — management API audit trail with log file validation.
+
+**AWS Budget** — monthly cost budget (default $50) with optional email alerts at
+80% and 100%. Set `BUDGET_NOTIFICATION_EMAIL` when deploying the network stack:
+
+```bash
+export BUDGET_NOTIFICATION_EMAIL=you@example.com
+./infrastructure/scripts/deploy.sh
+```
+
+Verify alarms:
+
+```bash
+aws cloudwatch describe-alarms --alarm-name-prefix ai-media-platform-
+```
+
+## Quick start (local)
 
 1. Copy environment variables:
 
@@ -40,126 +129,116 @@ Backend API (FastAPI)
    docker compose up --build
    ```
 
-3. Verify the API health check:
+3. Verify health:
 
    ```bash
    curl http://localhost:8000/health
    ```
 
-   Expected response:
+4. Open API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-   ```json
-   {"status":"ok","db":"connected"}
-   ```
+PostgreSQL is exposed on host port **5433** (mapped to 5432 inside Docker).
 
-4. Open interactive API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-## Database tables
-
-After the API starts, Alembic runs migrations automatically. Verify tables:
+## API flow
 
 ```bash
-docker compose exec db psql -U amp -d ai_media_platform -c '\dt'
+# Register
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"strong-password-123"}'
+
+# Login
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@example.com","password":"strong-password-123"}'
+
+# Request upload (use access_token from login)
+curl -X POST http://localhost:8000/uploads \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"filename":"photo.jpg","content_type":"image/jpeg","file_size_bytes":1024}'
+
+# List media
+curl http://localhost:8000/media -H "Authorization: Bearer <access_token>"
 ```
-
-Expected tables: `users`, `media_items`, `processing_jobs`, `alembic_version`.
-
-PostgreSQL is exposed on host port **5433** (mapped to 5432 inside Docker) to avoid
-conflicts with a local PostgreSQL installation.
-
-## API flow (authentication)
-
-1. Register a user:
-
-   ```bash
-   curl -X POST http://localhost:8000/auth/register \
-     -H "Content-Type: application/json" \
-     -d '{"email":"demo@example.com","password":"strong-password-123"}'
-   ```
-
-2. Log in and copy the `access_token`:
-
-   ```bash
-   curl -X POST http://localhost:8000/auth/login \
-     -H "Content-Type: application/json" \
-     -d '{"email":"demo@example.com","password":"strong-password-123"}'
-   ```
-
-3. Create an upload request:
-
-   ```bash
-   curl -X POST http://localhost:8000/uploads \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <access_token>" \
-     -d '{"filename":"photo.jpg","content_type":"image/jpeg","file_size_bytes":1024}'
-   ```
-
-4. List media:
-
-   ```bash
-   curl http://localhost:8000/media \
-     -H "Authorization: Bearer <access_token>"
-   ```
-
-5. Log out (invalidates issued tokens server-side):
-
-   ```bash
-   curl -X POST http://localhost:8000/auth/logout \
-     -H "Authorization: Bearer <access_token>"
-   ```
-
-   After logout, discard the token on the client. The same token will no longer work.
-
-## Media statuses
-
-| Status       | Meaning                          |
-| ------------ | -------------------------------- |
-| `UPLOADING`  | Upload request created           |
-| `PROCESSING` | Background job in progress       |
-| `COMPLETED`  | Processing finished successfully |
-| `FAILED`     | Processing failed                |
 
 ## Project structure
 
 ```text
 backend/
-  api/          FastAPI application and Alembic migrations
-  worker/       Async worker placeholder for future SQS jobs
-  common/       Shared package (config, models, database, logging)
-infrastructure/ CloudFormation placeholder (Sprint 03)
-sprints/        Sprint planning documents (see sprints/README.md)
+  api/              FastAPI application and Alembic migrations
+  worker/           SQS consumer — thumbnails, AI, notifications
+  common/           Shared config, models, database, logging
+infrastructure/     CloudFormation templates and deploy scripts
+docs/               Architecture diagrams and demo guide
+scripts/            Demo and utility scripts
+sprints/            Sprint planning documents
 ```
 
-## Local development (without Docker)
+## Tests and linting
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
-
-# Start PostgreSQL separately, then:
-export DATABASE_URL=postgresql+asyncpg://amp:amp@localhost:5432/ai_media_platform
-cd backend/api && alembic upgrade head
-uvicorn app.main:app --reload --app-dir backend/api
+pytest
+ruff check backend
 ```
 
-Set `PYTHONPATH=backend:backend/api` when running commands locally (pytest picks
-this up automatically from `pyproject.toml`).
+CI runs on every push/PR to `main` with PostgreSQL, migrations, pytest, and ruff.
 
-## Linting and tests
+## AWS deployment
+
+See [infrastructure/README.md](infrastructure/README.md) for the full deploy guide.
 
 ```bash
-ruff check backend
-pytest                  # unit tests (mocked DB)
-pytest -m integration   # live API tests (requires docker compose up)
+# 1. Network + CloudTrail + Budget
+export DEPLOY_BUCKET=your-cfn-artifacts-bucket
+export BUDGET_NOTIFICATION_EMAIL=you@example.com  # optional
+./infrastructure/scripts/deploy.sh
+
+# 2. API + worker + RDS + S3 + monitoring
+./infrastructure/scripts/deploy-api.sh
 ```
 
-## What's next
+## What I learned
 
-See [sprints/README.md](sprints/README.md) for the full roadmap.
+Building this project end-to-end taught me:
 
-- **Sprint 02**: Authentication — **done locally**
-- **Sprint 03**: CloudFormation VPC and network — **done locally (templates + tests)**
-- **Sprint 04**: Deploy API on ECS Fargate — **next up**
-- **Sprint 05**: S3 presigned uploads
-- **Sprint 06**: SQS/EventBridge async workers
+- **Designing async pipelines** — decoupling upload (API) from processing (worker)
+  with SQS, and using S3 events instead of polling.
+- **AWS networking** — public/private subnets, NAT egress, security groups, and
+  why RDS and workers stay off the public internet.
+- **IaC with nested stacks** — splitting CloudFormation by concern (network, API,
+  processing, monitoring) and exporting outputs for downstream stacks.
+- **Operational thinking** — structured logs for traceability, CloudWatch alarms
+  for backlog and error detection, CloudTrail for audit, and budgets for cost
+  awareness.
+- **CDN integration** — serving processed media via CloudFront with origin access
+  controls instead of public S3 buckets.
+- **AI in production workflows** — wrapping Groq vision calls in a LangGraph
+  graph with retries, mock mode for tests, and persisting results alongside media
+  metadata.
+- **Testing across layers** — unit tests with mocks, CloudFormation template tests,
+  and integration tests against a real PostgreSQL instance in CI.
+
+## Sprint roadmap
+
+All 10 core sprints are implemented. See [sprints/README.md](sprints/README.md)
+for the original plan.
+
+| Sprint | Topic | Status |
+| ------ | ----- | ------ |
+| 01 | Foundation (API, DB, Docker) | Done |
+| 02 | Authentication (JWT) | Done |
+| 03 | CloudFormation network | Done |
+| 04 | ECS Fargate API | Done |
+| 05 | S3 presigned uploads | Done |
+| 06 | SQS async workers | Done |
+| 07 | AI (LangGraph + Groq) | Done |
+| 08 | SNS notifications | Done |
+| 09 | CloudFront CDN | Done |
+| 10 | Monitoring, CloudTrail, structured logs | Done |
+
+## License
+
+MIT — see repository for details.

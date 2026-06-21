@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Monthly AWS cost budget with email threshold alerts.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  BudgetLimitUsd:
+    Type: Number
+    Default: 50
+    Description: Monthly AWS spend limit in USD.
+
+  BudgetNotificationEmail:
+    Type: String
+    Default: ""
+    Description: Email address for budget threshold alerts (80% and 100% of limit).
+
+Conditions:
+  HasBudgetEmail: !Not [!Equals [!Ref BudgetNotificationEmail, ""]]
+
+Resources:
+  MonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub ${EnvironmentName}-monthly-cost
+        BudgetLimit:
+          Amount: !Ref BudgetLimitUsd
+          Unit: USD
+        TimeUnit: MONTHLY
+        BudgetType: COST
+      NotificationsWithSubscribers: !If
+        - HasBudgetEmail
+        - - Notification:
+              NotificationType: ACTUAL
+              ComparisonOperator: GREATER_THAN
+              Threshold: 80
+              ThresholdType: PERCENTAGE
+            Subscribers:
+              - SubscriptionType: EMAIL
+                Address: !Ref BudgetNotificationEmail
+          - Notification:
+              NotificationType: ACTUAL
+              ComparisonOperator: GREATER_THAN
+              Threshold: 100
+              ThresholdType: PERCENTAGE
+            Subscribers:
+              - SubscriptionType: EMAIL
+                Address: !Ref BudgetNotificationEmail
+        - !Ref AWS::NoValue
+
+Outputs:
+  BudgetName:
+    Description: Name of the monthly AWS cost budget.
+    Value: !Sub ${EnvironmentName}-monthly-cost

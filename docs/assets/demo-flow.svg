@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" font-family="system-ui, sans-serif">
+  <rect width="720" height="200" fill="#f8fafc"/>
+  <text x="360" y="24" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Demo flow: register ’ upload ’ process ’ view</text>
+
+  <g font-size="11" fill="#334155">
+    <rect x="20" y="50" width="90" height="36" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="65" y="72" text-anchor="middle">Register</text>
+
+    <rect x="130" y="50" width="90" height="36" rx="6" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="175" y="72" text-anchor="middle">Login</text>
+
+    <rect x="240" y="50" width="110" height="36" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="295" y="72" text-anchor="middle">Presigned URL</text>
+
+    <rect x="370" y="50" width="90" height="36" rx="6" fill="#fef3c7" stroke="#d97706"/>
+    <text x="415" y="72" text-anchor="middle">PUT S3</text>
+
+    <rect x="480" y="50" width="100" height="36" rx="6" fill="#fce7f3" stroke="#db2777"/>
+    <text x="530" y="72" text-anchor="middle">SQS worker</text>
+
+    <rect x="600" y="50" width="100" height="36" rx="6" fill="#e0e7ff" stroke="#4f46e5"/>
+    <text x="650" y="72" text-anchor="middle">AI + CDN</text>
+  </g>
+
+  <g stroke="#64748b" stroke-width="1.5" marker-end="url(#a)">
+    <defs><marker id="a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/></marker></defs>
+    <line x1="110" y1="68" x2="130" y2="68"/>
+    <line x1="220" y1="68" x2="240" y2="68"/>
+    <line x1="350" y1="68" x2="370" y2="68"/>
+    <line x1="460" y1="68" x2="480" y2="68"/>
+    <line x1="580" y1="68" x2="600" y2="68"/>
+  </g>
+
+  <text x="360" y="130" text-anchor="middle" font-size="12" fill="#475569">Run: ./scripts/demo.sh  ·  Record GIF: see docs/demo.md</text>
+  <text x="360" y="155" text-anchor="middle" font-size="11" fill="#64748b">Worker generates thumbnail, runs Groq/LangGraph analysis, publishes SNS notification</text>
+</svg>

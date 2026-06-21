@@ -19,6 +19,16 @@ Parameters:
     Type: AWS::EC2::AvailabilityZone::Name
     Default: us-east-1b
 
+  BudgetLimitUsd:
+    Type: Number
+    Default: 50
+    Description: Monthly AWS cost budget limit in USD.
+
+  BudgetNotificationEmail:
+    Type: String
+    Default: ""
+    Description: Optional email for budget alerts at 80% and 100% of the monthly limit.
+
 Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
@@ -64,6 +74,18 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-cloudtrail-stack
+
+  BudgetStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: budget.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        BudgetLimitUsd: !Ref BudgetLimitUsd
+        BudgetNotificationEmail: !Ref BudgetNotificationEmail
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-budget-stack
 
 Outputs:
   VpcId:
@@ -143,3 +165,9 @@ Outputs:
     Value: !GetAtt CloudTrailStack.Outputs.AuditTrailName
     Export:
       Name: !Sub ${EnvironmentName}-AuditTrailName
+
+  BudgetName:
+    Description: Monthly AWS cost budget name.
+    Value: !GetAtt BudgetStack.Outputs.BudgetName
+    Export:
+      Name: !Sub ${EnvironmentName}-BudgetName

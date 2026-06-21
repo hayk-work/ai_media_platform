@@ -17,7 +17,9 @@ aws cloudformation deploy \
   --template-file "${PACKAGED_TEMPLATE}" \
   --stack-name "${STACK_NAME}" \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides "EnvironmentName=${ENVIRONMENT_NAME}" \
+  --parameter-overrides \
+    "EnvironmentName=${ENVIRONMENT_NAME}" \
+    ${BUDGET_NOTIFICATION_EMAIL:+BudgetNotificationEmail=${BUDGET_NOTIFICATION_EMAIL}} \
   --no-fail-on-empty-changeset
 
 echo "Stack deployed: ${STACK_NAME}"

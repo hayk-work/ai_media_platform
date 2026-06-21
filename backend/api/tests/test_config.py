@@ -20,3 +20,9 @@ def test_resolved_database_url_falls_back_to_database_url() -> None:
         database_url="postgresql+asyncpg://amp:amp@localhost:5433/ai_media_platform",
     )
     assert settings.resolved_database_url == settings.database_url
+
+
+def test_ai_enabled_requires_groq_key_or_mock_mode() -> None:
+    assert Settings(groq_api_key="", ai_mock_mode=False).ai_enabled is False
+    assert Settings(groq_api_key="gsk_test", ai_mock_mode=False).ai_enabled is True
+    assert Settings(groq_api_key="", ai_mock_mode=True).ai_enabled is True

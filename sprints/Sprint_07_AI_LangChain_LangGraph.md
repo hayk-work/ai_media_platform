@@ -10,51 +10,98 @@ LangChain and LangGraph fit naturally here because the media processing job can
 be modeled as a multi-step workflow with clear nodes, retries, and stored
 results.
 
+**Scope for this sprint:** images only. Video analysis is a future enhancement.
+
 ## User story
 
-As a user, I want the platform to analyze my uploaded image or video and return
-useful AI-generated metadata such as captions, tags, and content summaries.
+As a user, I want the platform to analyze my uploaded image and return useful
+AI-generated metadata such as captions, tags, and content summaries that I can
+search and filter later.
 
 ## Architecture focus
 
 ```text
 ECS Worker
    |
-   +--> Basic image processing
+   +--> Basic image processing (thumbnail)
    |
-   +--> LangGraph workflow
+   +--> LangGraph workflow (Groq vision model)
           |
-          +--> Load media context
-          +--> Generate caption
-          +--> Extract tags
-          +--> Check safety/quality
-          +--> Store AI result
+          +--> load_context
+          +--> prepare_prompt
+          +--> analyze_image
+          +--> extract_tags
+          +--> safety_check
+          +--> validate_result
+          +--> persist_ai_result
    |
    v
-PostgreSQL
+PostgreSQL (media_ai_results)
+   |
+   v
+API (/media, /media?tag=...)
 ```
+
+## AI provider strategy
+
+| Provider | When to use | Notes |
+| --- | --- | --- |
+| **Groq** (default) | Local dev and portfolio demos | Free tier, fast inference. Requires a vision-capable model. |
+| **Mock** (`AI_MOCK_MODE=true`) | Tests and CI | No external API calls; returns deterministic sample metadata. |
+| **Bedrock** (optional later) | AWS-native deploy story | `langchain-aws` is already a dependency; not required for Sprint 07. |
+
+**Not in scope:** Pinecone (vector DB) and Tavily (web search). PostgreSQL
+stores captions/tags and supports basic tag filtering without extra services.
+
+## Environment variables
+
+Add to `.env` (never commit real keys):
+
+```bash
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+AI_MOCK_MODE=false
+```
+
+- `GROQ_API_KEY` — required for live AI analysis (worker reads this).
+- `GROQ_MODEL` — must be a Groq model that supports image input.
+- `AI_MOCK_MODE` — when `true`, skip Groq and use stubbed AI output.
 
 ## Build scope
 
-- Add LangChain integration for AI model calls.
-- Add a LangGraph workflow for media analysis.
+- Add LangChain + LangGraph integration for AI model calls (Groq via
+  `langchain-groq`).
+- Add a LangGraph workflow for image analysis with structured Pydantic output:
+  - `caption`
+  - `tags`
+  - `labels`
+  - `quality_issues`
+  - `is_safe`
 - Define workflow nodes:
-  - load media metadata
+  - load media metadata and image bytes
   - prepare prompt/context
-  - generate description
-  - extract tags/categories
+  - analyze image (caption + labels)
+  - extract/normalize tags
+  - safety/quality check
   - validate result shape
   - persist AI results
-- Add database tables or columns for:
-  - caption
-  - tags
-  - detected objects or labels
-  - AI provider/model
-  - AI processing status
-  - error message
-- Store AI output separately from raw upload metadata.
+- Add a `media_ai_results` table (separate from thumbnail `metadata_json`):
+  - `media_item_id`
+  - `caption`
+  - `tags`
+  - `labels`
+  - `provider` / `model`
+  - `status` (`PENDING`, `COMPLETED`, `FAILED`)
+  - `error_message`
+  - timestamps
+- Partial success model:
+  - thumbnail success can still mark media `COMPLETED`
+  - AI failure sets AI status to `FAILED` without deleting the thumbnail
 - Add retry/error handling around AI calls.
-- Add worker logs for each LangGraph node.
+- Add worker logs for each LangGraph node (`ai_node`, `duration_ms`, status).
+- Extend media API:
+  - `GET /media/{id}` returns AI metadata
+  - `GET /media?tag=sunset` filters by AI tag (portfolio search demo)
 - Keep secrets and model API keys out of source code.
 
 ## AWS topics demonstrated
@@ -72,30 +119,43 @@ PostgreSQL
 
 This sprint proves you can combine cloud architecture with AI orchestration:
 
-- LangChain handles model/tool interaction.
+- LangChain handles model interaction and structured output parsing.
 - LangGraph makes the AI workflow explicit and inspectable.
 - ECS workers allow longer processing than typical request/response APIs.
 - PostgreSQL stores outputs for search, filtering, and UI display.
 
+## Prerequisites (before coding)
+
+- [x] Sprint 06 async worker pipeline (SQS → thumbnail → PostgreSQL)
+- [x] LangChain / LangGraph dependencies in `pyproject.toml`
+- [x] `GROQ_API_KEY` and `GROQ_MODEL` in `.env`
+- [x] Groq vision model confirmed working with your API key
+- [x] `langchain-groq` added to project dependencies
+
 ## Acceptance checks
 
-- Worker runs the LangGraph workflow after a media upload.
-- AI results are saved to PostgreSQL.
-- Media detail API returns AI metadata.
-- Failed AI calls mark the job as `FAILED` or `AI_FAILED` with a useful reason.
-- CloudWatch logs show workflow start, node progress, and completion.
+- Worker runs the LangGraph workflow after thumbnail processing (when AI is enabled).
+- AI results are saved to `media_ai_results` in PostgreSQL.
+- `GET /media/{id}` returns AI metadata (caption, tags, labels, AI status).
+- `GET /media?tag=...` returns items matching an AI tag.
+- Failed AI calls set AI status to `FAILED` with a useful `error_message`.
+- Thumbnail processing can still succeed when AI fails (partial success).
+- CloudWatch / structlog output shows workflow start, node progress, and completion.
+- Tests pass with `AI_MOCK_MODE=true` without calling Groq.
 
 ## Portfolio proof
 
 Show:
 
-- LangGraph workflow diagram
+- LangGraph workflow diagram (Mermaid in repo or sprint notes)
 - example uploaded image
-- generated caption/tags
-- database row containing AI result
-- worker logs showing AI workflow execution
+- generated caption/tags in API response
+- `media_ai_results` database row
+- worker logs showing each LangGraph node
+- tag search example (`GET /media?tag=...`)
 
 ## Result
 
-Uploaded media now receives AI-generated metadata through a clear LangChain and
-LangGraph pipeline running inside ECS workers.
+Uploaded images now receive AI-generated metadata through a clear LangChain and
+LangGraph pipeline running inside ECS workers, powered by Groq for free local
+demos and optional mock mode for tests.

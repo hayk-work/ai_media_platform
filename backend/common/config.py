@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     sqs_processing_queue_url: str = ""
     worker_poll_wait_seconds: int = 20
     worker_max_messages: int = 1
+    groq_api_key: str = ""
+    groq_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    ai_mock_mode: bool = False
+
+    @property
+    def ai_enabled(self) -> bool:
+        return self.ai_mock_mode or bool(self.groq_api_key)
 
     @property
     def resolved_database_url(self) -> str:

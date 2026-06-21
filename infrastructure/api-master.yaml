@@ -24,6 +24,11 @@ Parameters:
     Default: 1
     Description: Number of running worker tasks.
 
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: Optional email address for SNS processing notification subscription.
+
 Resources:
   EcrStack:
     Type: AWS::CloudFormation::Stack
@@ -72,6 +77,17 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-processing-stack
 
+  NotificationsStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: notifications.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        NotificationEmail: !Ref NotificationEmail
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-notifications-stack
+
   EcsApiStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -109,6 +125,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn:
       - ProcessingStack
+      - NotificationsStack
       - RdsStack
       - EcsApiStack
     Properties:
@@ -131,6 +148,7 @@ Resources:
         DatabaseSecretArn: !GetAtt RdsStack.Outputs.DatabaseSecretArn
         MediaBucketName: !GetAtt S3Stack.Outputs.MediaBucketName
         ProcessingQueueUrl: !GetAtt ProcessingStack.Outputs.ProcessingQueueUrl
+        ProcessingNotificationTopicArn: !GetAtt NotificationsStack.Outputs.ProcessingNotificationTopicArn
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-worker-stack
@@ -189,3 +207,9 @@ Outputs:
     Value: !GetAtt EcsWorkerStack.Outputs.WorkerLogGroupName
     Export:
       Name: !Sub ${EnvironmentName}-WorkerLogGroupName
+
+  ProcessingNotificationTopicArn:
+    Description: SNS topic ARN for media processing completion notifications.
+    Value: !GetAtt NotificationsStack.Outputs.ProcessingNotificationTopicArn
+    Export:
+      Name: !Sub ${EnvironmentName}-ProcessingNotificationTopicArn

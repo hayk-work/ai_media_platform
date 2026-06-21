@@ -46,6 +46,10 @@ Parameters:
   ProcessingQueueUrl:
     Type: String
 
+  ProcessingNotificationTopicArn:
+    Type: String
+    Default: ""
+
 Resources:
   WorkerLogGroup:
     Type: AWS::Logs::LogGroup
@@ -102,6 +106,8 @@ Resources:
               Value: !Ref MediaBucketName
             - Name: SQS_PROCESSING_QUEUE_URL
               Value: !Ref ProcessingQueueUrl
+            - Name: SNS_PROCESSING_TOPIC_ARN
+              Value: !Ref ProcessingNotificationTopicArn
           Secrets:
             - Name: DB_PASSWORD
               ValueFrom: !Sub "${DatabaseSecretArn}:password::"

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from common.config import settings
 from common.enums import MediaStatus
 from common.models import MediaItem, ProcessingJob
+from common.notifications import notify_processing_result
 from common.s3 import build_thumbnail_object_key, download_object_bytes, upload_object_bytes
 
 logger = structlog.get_logger(__name__)
@@ -226,9 +227,23 @@ async def process_upload_object(
             content_type=content_type,
             image_bytes=original_bytes,
         )
+
+        await notify_processing_result(
+            session_factory,
+            media_id=ref.media_id,
+            user_id=ref.user_id,
+            event_status=MediaStatus.COMPLETED,
+        )
         return True
     except Exception as exc:
         logger.exception("processing_failed", media_id=str(ref.media_id), error=str(exc))
         async with session_factory() as session:
             await mark_media_failed(session, ref.media_id, str(exc))
+
+        await notify_processing_result(
+            session_factory,
+            media_id=ref.media_id,
+            user_id=ref.user_id,
+            event_status=MediaStatus.FAILED,
+        )
         return False

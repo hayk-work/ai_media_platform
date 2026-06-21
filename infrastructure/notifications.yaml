@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: SNS notifications for media processing completion events.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: Optional email address for SNS email subscription confirmation.
+
+Conditions:
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+
+Resources:
+  ProcessingNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${EnvironmentName}-processing-notifications
+      DisplayName: AI Media Platform processing notifications
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-processing-notifications
+
+  ProcessingNotificationEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      TopicArn: !Ref ProcessingNotificationTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+
+  # Portfolio placeholder for future SMS/mobile push subscriptions.
+  # Uncomment and provide NotificationPhoneNumber when enabling SMS alerts.
+  # ProcessingNotificationSmsSubscription:
+  #   Type: AWS::SNS::Subscription
+  #   Properties:
+  #     TopicArn: !Ref ProcessingNotificationTopic
+  #     Protocol: sms
+  #     Endpoint: !Ref NotificationPhoneNumber
+
+  WorkerSnsPublishPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-worker-sns-publish
+      Roles:
+        - !Sub ${EnvironmentName}-ecs-worker-task-role
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - sns:Publish
+            Resource: !Ref ProcessingNotificationTopic
+
+Outputs:
+  ProcessingNotificationTopicArn:
+    Description: SNS topic ARN for media processing completion notifications.
+    Value: !Ref ProcessingNotificationTopic
+
+  ProcessingNotificationTopicName:
+    Description: SNS topic name for media processing completion notifications.
+    Value: !GetAtt ProcessingNotificationTopic.TopicName

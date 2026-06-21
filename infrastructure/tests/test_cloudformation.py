@@ -34,6 +34,14 @@ def _construct_sequence_intrinsic(tag: str):
     return constructor
 
 
+def _construct_equals(loader: CloudFormationLoader, node: yaml.Node) -> dict:
+    return {"Fn::Equals": loader.construct_sequence(node)}
+
+
+def _construct_not(loader: CloudFormationLoader, node: yaml.Node) -> dict:
+    return {"Fn::Not": loader.construct_sequence(node)}
+
+
 CloudFormationLoader.add_constructor("!Ref", _construct_ref)
 CloudFormationLoader.add_constructor("!GetAtt", _construct_getatt)
 CloudFormationLoader.add_constructor("!Sub", _construct_sub)
@@ -41,6 +49,8 @@ CloudFormationLoader.add_constructor("!Join", _construct_sequence_intrinsic("Fn:
 CloudFormationLoader.add_constructor("!Select", _construct_sequence_intrinsic("Fn::Select"))
 CloudFormationLoader.add_constructor("!Split", _construct_sequence_intrinsic("Fn::Split"))
 CloudFormationLoader.add_constructor("!Cidr", _construct_sequence_intrinsic("Fn::Cidr"))
+CloudFormationLoader.add_constructor("!Equals", _construct_equals)
+CloudFormationLoader.add_constructor("!Not", _construct_not)
 
 
 def load_template(name: str) -> dict:
@@ -150,10 +160,11 @@ def test_api_master_nests_ecr_rds_and_ecs_api() -> None:
         for name, spec in template["Resources"].items()
         if spec["Type"] == "AWS::CloudFormation::Stack"
     }
-    assert {"EcrStack", "RdsStack", "S3Stack", "ProcessingStack", "EcsApiStack", "EcsWorkerStack"} <= set(
+    assert {"EcrStack", "RdsStack", "S3Stack", "ProcessingStack", "NotificationsStack", "EcsApiStack", "EcsWorkerStack"} <= set(
         nested
     )
     assert nested["ProcessingStack"]["Properties"]["TemplateURL"] == "processing.yaml"
+    assert nested["NotificationsStack"]["Properties"]["TemplateURL"] == "notifications.yaml"
     assert nested["EcsWorkerStack"]["Properties"]["TemplateURL"] == "ecs-worker.yaml"
     assert nested["EcrStack"]["Properties"]["TemplateURL"] == "ecr.yaml"
     assert nested["RdsStack"]["Properties"]["TemplateURL"] == "rds.yaml"
@@ -183,6 +194,36 @@ def test_ecs_worker_receives_processing_queue_url() -> None:
     assert worker_params["ProcessingQueueUrl"] == {
         "Fn::GetAtt": ["ProcessingStack", "Outputs.ProcessingQueueUrl"]
     }
+    assert worker_params["ProcessingNotificationTopicArn"] == {
+        "Fn::GetAtt": ["NotificationsStack", "Outputs.ProcessingNotificationTopicArn"]
+    }
+
+
+def test_notifications_stack_defines_sns_topic_and_worker_publish_policy() -> None:
+    template = load_template("notifications.yaml")
+    types = resource_types(template)
+    assert "AWS::SNS::Topic" in types
+    assert "AWS::IAM::Policy" in types
+    policy = template["Resources"]["WorkerSnsPublishPolicy"]["Properties"]["PolicyDocument"]
+    actions = policy["Statement"][0]["Action"]
+    assert "sns:Publish" in actions
+
+
+def test_notifications_stack_creates_email_subscription_when_email_provided() -> None:
+    template = load_template("notifications.yaml")
+    subscription = template["Resources"]["ProcessingNotificationEmailSubscription"]
+    assert subscription["Type"] == "AWS::SNS::Subscription"
+    assert subscription["Properties"]["Protocol"] == "email"
+    assert "Condition" in subscription
+
+
+def test_ecs_worker_receives_sns_topic_arn_env_var() -> None:
+    template = load_template("ecs-worker.yaml")
+    container = template["Resources"]["WorkerTaskDefinition"]["Properties"][
+        "ContainerDefinitions"
+    ][0]
+    env_names = {entry["Name"] for entry in container["Environment"]}
+    assert "SNS_PROCESSING_TOPIC_ARN" in env_names
 
 
 def test_s3_bucket_enables_eventbridge_notifications() -> None:

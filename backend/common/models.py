@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from common.db import Base
-from common.enums import AiAnalysisStatus, MediaStatus
+from common.enums import AiAnalysisStatus, MediaStatus, NotificationStatus
 
 
 class User(Base):
@@ -27,6 +27,9 @@ class User(Base):
     )
 
     media_items: Mapped[list["MediaItem"]] = relationship(back_populates="user")
+    notification_preferences: Mapped["UserNotificationPreference | None"] = relationship(
+        back_populates="user", uselist=False
+    )
 
 
 class MediaItem(Base):
@@ -59,6 +62,9 @@ class MediaItem(Base):
     processing_jobs: Mapped[list["ProcessingJob"]] = relationship(back_populates="media_item")
     ai_result: Mapped["MediaAiResult | None"] = relationship(
         back_populates="media_item", uselist=False
+    )
+    processing_notifications: Mapped[list["ProcessingNotification"]] = relationship(
+        back_populates="media_item"
     )
 
 
@@ -120,3 +126,57 @@ class ProcessingJob(Base):
     )
 
     media_item: Mapped["MediaItem"] = relationship(back_populates="processing_jobs")
+
+
+class UserNotificationPreference(Base):
+    __tablename__ = "user_notification_preferences"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False
+    )
+    email_enabled: Mapped[bool] = mapped_column(nullable=False, default=True)
+    sms_enabled: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(back_populates="notification_preferences")
+
+
+class ProcessingNotification(Base):
+    __tablename__ = "processing_notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    media_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("media_items.id"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    status: Mapped[NotificationStatus] = mapped_column(
+        Enum(NotificationStatus, name="notification_status"),
+        nullable=False,
+        default=NotificationStatus.PENDING,
+    )
+    event_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    sns_message_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    media_item: Mapped["MediaItem"] = relationship(back_populates="processing_notifications")

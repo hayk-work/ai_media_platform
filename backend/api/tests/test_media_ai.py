@@ -173,6 +173,20 @@ async def test_process_upload_persists_mock_ai_result(
     assert ai_result.caption
     assert "mock" in ai_result.tags
 
+    from common.enums import NotificationStatus
+    from common.models import ProcessingNotification
+    from sqlalchemy import select
+
+    async with async_session_factory() as session:
+        notification = await session.scalar(
+            select(ProcessingNotification).where(ProcessingNotification.media_item_id == media_id)
+        )
+
+    assert notification is not None
+    assert notification.status == NotificationStatus.SENT
+    assert notification.event_status == "COMPLETED"
+    assert notification.message == "Your image is ready"
+
 
 @pytest.fixture(scope="session", autouse=True)
 async def dispose_engine():

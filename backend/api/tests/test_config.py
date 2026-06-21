@@ -26,3 +26,13 @@ def test_ai_enabled_requires_groq_key_or_mock_mode() -> None:
     assert Settings(groq_api_key="", ai_mock_mode=False).ai_enabled is False
     assert Settings(groq_api_key="gsk_test", ai_mock_mode=False).ai_enabled is True
     assert Settings(groq_api_key="", ai_mock_mode=True).ai_enabled is True
+
+
+def test_sns_enabled_requires_topic_arn() -> None:
+    assert Settings(sns_processing_topic_arn="").sns_enabled is False
+    assert (
+        Settings(
+            sns_processing_topic_arn="arn:aws:sns:us-east-1:123456789012:processing"
+        ).sns_enabled
+        is True
+    )

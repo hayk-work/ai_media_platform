@@ -1,7 +1,8 @@
 # Infrastructure
 
-CloudFormation templates for the AWS network foundation (Sprint 03) and ECS API
-(Sprint 04), S3 uploads (Sprint 05), and async workers (Sprint 06).
+CloudFormation templates for the full AWS deployment: VPC networking, ECS API and
+worker services, S3 media storage, async processing, CDN, monitoring, audit logging,
+and cost budgets.
 
 ## Layout
 
@@ -85,7 +86,7 @@ Downstream stacks (ECS, RDS, S3) consume exports listed in `outputs.yaml`, inclu
 - `AlbSecurityGroupId`, `ApiServiceSecurityGroupId`, `WorkerServiceSecurityGroupId`, `RdsSecurityGroupId`
 - `EcsTaskExecutionRoleArn`, `EcsApiTaskRoleArn`, `EcsWorkerTaskRoleArn`
 
-## Deploy API stack (Sprint 04)
+## Deploy API stack
 
 Requires the network stack to be deployed first.
 
@@ -101,7 +102,7 @@ The script builds and pushes the API and worker Docker images to ECR, deploys RD
 S3, EventBridge/SQS processing, ECS API, and ECS worker, then waits for services
 to stabilize and runs a health check against the ALB.
 
-## Async processing (Sprint 06)
+## Async processing
 
 S3 `Object Created` events on `uploads/` flow through EventBridge into an SQS
 queue. The ECS worker consumes messages, generates thumbnails, writes outputs to
@@ -118,7 +119,7 @@ API stack exports are listed in `api-outputs.yaml`, including:
 - `ProcessingQueueUrl`
 - `WorkerLogGroupName`
 
-## Monitoring and security (Sprint 10)
+## Monitoring and security
 
 CloudWatch and CloudTrail provide two complementary views of the platform:
 

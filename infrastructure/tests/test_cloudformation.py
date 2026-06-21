@@ -482,7 +482,7 @@ def test_api_master_nests_monitoring_stack() -> None:
     }
 
 
-def test_ecs_log_groups_use_sprint_paths() -> None:
+def test_ecs_log_groups_use_standard_paths() -> None:
     api_template = load_template("ecs-api.yaml")
     worker_template = load_template("ecs-worker.yaml")
     assert api_template["Resources"]["ApiLogGroup"]["Properties"]["LogGroupName"] == "/ecs/api"

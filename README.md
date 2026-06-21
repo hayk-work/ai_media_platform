@@ -91,7 +91,7 @@ flowchart TB
 
 ## Monitoring and cost alerts
 
-The platform includes operational visibility from Sprint 10:
+The platform includes operational visibility built into the infrastructure:
 
 **CloudWatch alarms** (via `infrastructure/monitoring.yaml`):
 
@@ -172,8 +172,20 @@ backend/
 infrastructure/     CloudFormation templates and deploy scripts
 docs/               Architecture diagrams and demo guide
 scripts/            Demo and utility scripts
-sprints/            Sprint planning documents
 ```
+
+## Features
+
+| Area | Capabilities |
+| ---- | ------------ |
+| **Auth** | JWT register, login, logout, protected routes |
+| **Uploads** | S3 presigned URLs, direct client-to-bucket upload |
+| **Processing** | EventBridge → SQS → ECS worker, thumbnails, status tracking |
+| **AI** | LangGraph workflow with Groq vision (caption + tags) |
+| **Notifications** | SNS alerts when processing completes |
+| **CDN** | CloudFront for API and processed media delivery |
+| **Ops** | CloudWatch alarms, structured logs, CloudTrail audit, cost budgets |
+| **IaC** | CloudFormation nested stacks, deploy scripts, template tests |
 
 ## Tests and linting
 
@@ -220,24 +232,6 @@ Building this project end-to-end taught me:
   metadata.
 - **Testing across layers** — unit tests with mocks, CloudFormation template tests,
   and integration tests against a real PostgreSQL instance in CI.
-
-## Sprint roadmap
-
-All 10 core sprints are implemented. See [sprints/README.md](sprints/README.md)
-for the original plan.
-
-| Sprint | Topic | Status |
-| ------ | ----- | ------ |
-| 01 | Foundation (API, DB, Docker) | Done |
-| 02 | Authentication (JWT) | Done |
-| 03 | CloudFormation network | Done |
-| 04 | ECS Fargate API | Done |
-| 05 | S3 presigned uploads | Done |
-| 06 | SQS async workers | Done |
-| 07 | AI (LangGraph + Groq) | Done |
-| 08 | SNS notifications | Done |
-| 09 | CloudFront CDN | Done |
-| 10 | Monitoring, CloudTrail, structured logs | Done |
 
 ## License
 

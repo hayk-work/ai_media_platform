@@ -1,4 +1,4 @@
-# Stack output contract for the ECS API stack (Sprint 04).
+# Stack output contract for the ECS API stack.
 # These keys are exported by infrastructure/api-master.yaml.
 
 ApiRepositoryUri:

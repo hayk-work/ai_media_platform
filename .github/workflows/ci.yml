@@ -10,6 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      PYTHONPATH: backend:backend/api:backend/worker
+
     services:
       postgres:
         image: postgres:16

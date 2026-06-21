@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from common.enums import MediaStatus
+from common.enums import AiAnalysisStatus, MediaStatus
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -58,6 +58,21 @@ class ProcessingJobResponse(BaseModel):
     updated_at: datetime
 
 
+class MediaAiResultResponse(BaseModel):
+    id: uuid.UUID
+    caption: str | None
+    tags: list[str]
+    labels: list[str]
+    quality_issues: list[str]
+    is_safe: bool
+    provider: str | None
+    model: str | None
+    status: AiAnalysisStatus
+    error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class MediaItemResponse(BaseModel):
     id: uuid.UUID
     filename: str
@@ -70,6 +85,7 @@ class MediaItemResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     latest_job: ProcessingJobResponse | None = None
+    ai_result: MediaAiResultResponse | None = None
 
 
 class MediaListResponse(BaseModel):

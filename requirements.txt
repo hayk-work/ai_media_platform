@@ -13,6 +13,7 @@ aioboto3
 langchain
 langgraph
 langchain-aws
+langchain-groq
 structlog
 email-validator
 bcrypt

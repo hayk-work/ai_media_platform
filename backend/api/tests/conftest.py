@@ -1,6 +1,7 @@
 import os
 
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-with-32-bytes-minimum")
+os.environ.setdefault("AI_MOCK_MODE", "true")
 os.environ["DATABASE_URL"] = os.getenv(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://amp:amp@localhost:5433/ai_media_platform",

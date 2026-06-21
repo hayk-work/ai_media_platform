@@ -45,6 +45,5 @@ This project is **API-only** — clients use HTTP (`curl`, Postman, `/docs`).
 
 ## Current status
 
-- **Sprint 02** — implemented locally (JWT auth)
-- **Sprint 03** — implemented locally (CloudFormation network templates)
-- **Sprint 04** — next up (ECS Fargate API)
+- **Sprints 01–06** — implemented (foundation through async workers)
+- **Sprint 07** — implemented (AI LangChain / LangGraph with Groq)

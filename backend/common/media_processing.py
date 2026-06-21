@@ -7,6 +7,7 @@ from PIL import Image
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from common.config import settings
 from common.enums import MediaStatus
 from common.models import MediaItem, ProcessingJob
 from common.s3 import build_thumbnail_object_key, download_object_bytes, upload_object_bytes
@@ -96,6 +97,57 @@ async def mark_media_completed(
     await session.commit()
 
 
+async def run_ai_analysis_for_media(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    media_id: uuid.UUID,
+    filename: str,
+    content_type: str,
+    image_bytes: bytes,
+) -> None:
+    from common.ai.persistence import persist_ai_failure, persist_ai_success
+    from common.ai.workflow import load_context, run_media_analysis_workflow
+
+    if not settings.ai_enabled:
+        logger.info("ai_analysis_skipped", media_id=str(media_id), reason="ai_disabled")
+        return
+
+    context = load_context(
+        {
+            "filename": filename,
+            "content_type": content_type,
+            "image_bytes": image_bytes,
+        }
+    )
+    provider = context["provider"]
+    model = context["model"]
+
+    logger.info("ai_analysis_started", media_id=str(media_id), provider=provider, model=model)
+    try:
+        analysis = run_media_analysis_workflow(
+            filename=filename,
+            content_type=content_type,
+            image_bytes=image_bytes,
+        )
+        await persist_ai_success(
+            session_factory,
+            media_item_id=media_id,
+            analysis=analysis,
+            provider=provider,
+            model=model,
+        )
+        logger.info("ai_analysis_completed", media_id=str(media_id))
+    except Exception as exc:
+        logger.exception("ai_analysis_failed", media_id=str(media_id), error=str(exc))
+        await persist_ai_failure(
+            session_factory,
+            media_item_id=media_id,
+            error_message=str(exc),
+            provider=provider,
+            model=model,
+        )
+
+
 async def mark_media_failed(
     session: AsyncSession,
     media_id: uuid.UUID,
@@ -158,11 +210,21 @@ async def process_upload_object(
                 thumbnail_key=thumbnail_key,
                 metadata=metadata,
             )
+            content_type = media_item.content_type
+            filename = media_item.filename
 
         logger.info(
             "processing_completed",
             media_id=str(ref.media_id),
             thumbnail_key=thumbnail_key,
+        )
+
+        await run_ai_analysis_for_media(
+            session_factory,
+            media_id=ref.media_id,
+            filename=filename,
+            content_type=content_type,
+            image_bytes=original_bytes,
         )
         return True
     except Exception as exc:

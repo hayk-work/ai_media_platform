@@ -59,3 +59,15 @@ EcsWorkerTaskRoleArn:
   description: Worker task role ARN
   used_by:
     - ECS worker task definition
+
+AuditBucketName:
+  description: S3 bucket storing CloudTrail audit logs
+  used_by:
+    - Security audits
+    - Incident investigation
+
+AuditTrailName:
+  description: CloudTrail trail name for management event auditing
+  used_by:
+    - Operations
+    - Compliance reviews

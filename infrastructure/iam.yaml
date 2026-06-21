@@ -44,7 +44,7 @@ Resources:
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: "*"
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/api:*
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-api-task-role
@@ -69,7 +69,7 @@ Resources:
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: "*"
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/worker:*
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-worker-task-role

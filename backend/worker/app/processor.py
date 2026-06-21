@@ -44,6 +44,12 @@ async def handle_message(message: dict[str, Any]) -> bool:
         return True
 
     bucket, object_key = parsed
+    logger.info(
+        "sqs_message_received",
+        message_id=message.get("MessageId"),
+        bucket=bucket,
+        object_key=object_key,
+    )
     bucket_name = settings.s3_media_bucket or bucket
     return await process_upload_object(
         async_session_factory,

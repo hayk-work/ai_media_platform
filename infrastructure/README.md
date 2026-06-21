@@ -19,6 +19,8 @@ infrastructure/
   s3.yaml            Private media upload bucket and API IAM policy
   processing.yaml    EventBridge rule, SQS queue, DLQ, worker IAM policy
   ecs-worker.yaml    ECS Fargate worker service and CloudWatch Logs
+  monitoring.yaml    CloudWatch log groups, metrics alarms, and SNS hooks
+  cloudtrail.yaml    CloudTrail audit trail and private audit S3 bucket
   api-outputs.yaml   Output contract for the API stack
   scripts/
     deploy.sh        Package nested templates to S3 and deploy network stack
@@ -114,3 +116,53 @@ API stack exports are listed in `api-outputs.yaml`, including:
 - `MediaBucketName` / `MediaBucketArn`
 - `ProcessingQueueUrl`
 - `WorkerLogGroupName`
+
+## Monitoring and security (Sprint 10)
+
+CloudWatch and CloudTrail provide two complementary views of the platform:
+
+- **CloudWatch** answers operational questions: queue backlog, API 5xx errors,
+  RDS pressure, and application log streams in `/ecs/api`, `/ecs/worker`, and
+  `/aws/events/media-platform`.
+- **CloudTrail** answers audit questions: who changed ECS services, IAM
+  policies, S3 buckets, or RDS instances.
+
+The monitoring stack creates CloudWatch alarms for:
+
+- SQS visible message backlog
+- Oldest SQS message age
+- API target 5xx responses
+- RDS CPU utilization and connection count
+
+Alarms optionally publish to the processing notification SNS topic.
+
+The CloudTrail stack creates a private audit bucket and enables management event
+logging with log file validation.
+
+Structured application logs include:
+
+- `upload_requested`, `presigned_url_generated`
+- `sqs_message_received`, `processing_started`, `processing_failed`
+- `ai_workflow_started`, `ai_workflow_completed`
+- `sns_notification_published`
+
+Verify CloudWatch after deploy:
+
+```bash
+aws logs describe-log-groups --log-group-name-prefix /ecs/
+aws cloudwatch describe-alarms --alarm-name-prefix ai-media-platform-
+```
+
+Verify CloudTrail after the network stack deploy:
+
+```bash
+aws cloudtrail describe-trails --trail-name-list ai-media-platform-audit-trail
+aws cloudtrail get-trail-status --name ai-media-platform-audit-trail
+```
+
+Example CloudTrail investigation questions:
+
+- Who changed ECS? Search event history for `UpdateService` on `ecs.amazonaws.com`.
+- Who changed IAM permissions? Search for `AttachRolePolicy` on `iam.amazonaws.com`.
+- Who deleted storage or database resources? Search for `DeleteBucket` or
+  `DeleteDBInstance`.

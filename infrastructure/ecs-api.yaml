@@ -79,7 +79,7 @@ Resources:
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /ecs/${EnvironmentName}-api
+      LogGroupName: /ecs/api
       RetentionInDays: 14
 
   EcsExecutionSecretsPolicy:
@@ -253,6 +253,10 @@ Outputs:
   ApiLoadBalancerUrl:
     Description: HTTP URL for the public API endpoint.
     Value: !Sub http://${ApiLoadBalancer.DNSName}
+
+  ApiLoadBalancerFullName:
+    Description: Full load balancer name for CloudWatch metric dimensions.
+    Value: !GetAtt ApiLoadBalancer.LoadBalancerFullName
 
   ApiClusterName:
     Description: ECS cluster name.

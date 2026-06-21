@@ -69,7 +69,7 @@ def publish_processing_notification(payload: dict[str, Any]) -> str:
 
     message_id = response["MessageId"]
     logger.info(
-        "sns_publish_succeeded",
+        "sns_notification_published",
         topic_arn=topic_arn,
         message_id=message_id,
         media_id=payload.get("media_id"),

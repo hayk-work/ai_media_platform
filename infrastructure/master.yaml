@@ -55,6 +55,16 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-iam-stack
 
+  CloudTrailStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: cloudtrail.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-cloudtrail-stack
+
 Outputs:
   VpcId:
     Description: VPC identifier for ECS and RDS stacks.
@@ -121,3 +131,15 @@ Outputs:
     Value: !GetAtt IamStack.Outputs.EcsWorkerTaskRoleArn
     Export:
       Name: !Sub ${EnvironmentName}-EcsWorkerTaskRoleArn
+
+  AuditBucketName:
+    Description: S3 bucket storing CloudTrail audit logs.
+    Value: !GetAtt CloudTrailStack.Outputs.AuditBucketName
+    Export:
+      Name: !Sub ${EnvironmentName}-AuditBucketName
+
+  AuditTrailName:
+    Description: CloudTrail trail name for management event auditing.
+    Value: !GetAtt CloudTrailStack.Outputs.AuditTrailName
+    Export:
+      Name: !Sub ${EnvironmentName}-AuditTrailName

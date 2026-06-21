@@ -13,12 +13,20 @@ for your portfolio README or LinkedIn.
 
 ## Quick demo script
 
-Run the automated curl demo against the live deployment:
+Create your local practice photo (gitignored, not committed):
+
+```bash
+python3 scripts/create-demo-photo.py
+```
+
+Run the full demo (register → upload → process → AI):
 
 ```bash
 chmod +x scripts/demo.sh
 ./scripts/demo.sh
 ```
+
+The script uses `scripts/demo-photo.jpg` by default. Override with `DEMO_PHOTO=/path/to/image.jpg`.
 
 For local Docker:
 
@@ -26,15 +34,14 @@ For local Docker:
 API_URL=http://localhost:8000 ./scripts/demo.sh
 ```
 
-## Full upload → process → AI flow
+## Manual upload flow
 
-After `./scripts/demo.sh` returns a presigned `upload_url`, upload a small JPEG:
+If you prefer step-by-step control, after `./scripts/demo.sh` starts you can upload with:
 
 ```bash
-# Replace UPLOAD_URL from the script output
 curl -X PUT "$UPLOAD_URL" \
   -H "Content-Type: image/jpeg" \
-  --data-binary @photo.jpg
+  --data-binary @scripts/demo-photo.jpg
 ```
 
 Poll until processing completes:

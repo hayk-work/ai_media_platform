@@ -18,9 +18,10 @@ async workers, CDN delivery, monitoring, audit logging, and automated tests.
 | **Health check** | https://d2rhsorulu1z8s.cloudfront.net/health |
 | **ALB (direct HTTP)** | http://ai-media-platform-api-alb-458236488.us-east-1.elb.amazonaws.com |
 
-Try the automated demo script:
+Try the automated demo script (create the practice photo first):
 
 ```bash
+python3 scripts/create-demo-photo.py
 chmod +x scripts/demo.sh
 ./scripts/demo.sh
 ```

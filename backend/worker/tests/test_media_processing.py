@@ -1,15 +1,13 @@
 import uuid
 from io import BytesIO
 
-import pytest
-from moto import mock_aws
-from PIL import Image
-
 from common.media_processing import (
     create_thumbnail_image,
     parse_upload_object_key,
 )
 from common.s3 import build_thumbnail_object_key, download_object_bytes, upload_object_bytes
+from moto import mock_aws
+from PIL import Image
 
 
 def test_parse_upload_object_key() -> None:

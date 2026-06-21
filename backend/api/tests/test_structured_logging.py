@@ -3,12 +3,11 @@ from unittest.mock import patch
 
 import pytest
 import structlog
-from httpx import ASGITransport, AsyncClient
-from structlog.testing import capture_logs
-
 from app.dependencies import get_current_user
 from app.main import app
 from common.db import get_db_session
+from httpx import ASGITransport, AsyncClient
+from structlog.testing import capture_logs
 
 
 class _FakeSession:
@@ -69,7 +68,9 @@ async def test_upload_request_emits_structured_logs() -> None:
     assert "upload_requested" in event_names
     assert "presigned_url_generated" in event_names
 
-    upload_requested = next(entry for entry in captured_logs if entry.get("event") == "upload_requested")
+    upload_requested = next(
+        entry for entry in captured_logs if entry.get("event") == "upload_requested"
+    )
     assert upload_requested["filename"] == "photo.jpg"
     assert upload_requested["content_type"] == "image/jpeg"
 

@@ -3,7 +3,6 @@ from typing import Any
 
 import boto3
 import structlog
-
 from common.config import settings
 from common.db import async_session_factory
 from common.media_processing import process_upload_object

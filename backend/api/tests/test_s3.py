@@ -2,10 +2,9 @@ import uuid
 
 import boto3
 import pytest
-from moto import mock_aws
-
 from common.config import Settings
 from common.s3 import build_media_object_key, generate_presigned_upload_url
+from moto import mock_aws
 
 
 def test_build_media_object_key_sanitizes_filename() -> None:
@@ -16,7 +15,9 @@ def test_build_media_object_key_sanitizes_filename() -> None:
 
 
 @mock_aws
-def test_generate_presigned_upload_url_includes_bucket_and_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_presigned_upload_url_includes_bucket_and_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     bucket = "test-media-bucket"
     client = boto3.client("s3", region_name="us-east-1")
     client.create_bucket(Bucket=bucket)

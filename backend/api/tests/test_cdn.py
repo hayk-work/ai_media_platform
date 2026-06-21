@@ -1,5 +1,4 @@
 import pytest
-
 from common.cdn import build_cloudfront_media_url
 from common.config import Settings
 

@@ -4,6 +4,7 @@ import signal
 import structlog
 from common.config import settings
 from common.logging import configure_logging
+
 from app.processor import poll_and_process_once
 
 configure_logging()

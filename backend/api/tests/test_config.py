@@ -40,4 +40,5 @@ def test_sns_enabled_requires_topic_arn() -> None:
 
 def test_cloudfront_enabled_requires_media_base_url() -> None:
     assert Settings(cloudfront_media_base_url="").cloudfront_enabled is False
-    assert Settings(cloudfront_media_base_url="https://d111.cloudfront.net").cloudfront_enabled is True
+    settings = Settings(cloudfront_media_base_url="https://d111.cloudfront.net")
+    assert settings.cloudfront_enabled is True

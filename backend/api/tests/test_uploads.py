@@ -2,11 +2,10 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from app.main import app
 from common.db import get_db_session
 from common.enums import MediaStatus
+from httpx import ASGITransport, AsyncClient
 
 
 class _FakeScalars:

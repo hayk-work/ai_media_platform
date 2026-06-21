@@ -4,7 +4,7 @@ from io import BytesIO
 
 import structlog
 from PIL import Image
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from common.config import settings
@@ -75,7 +75,6 @@ async def mark_media_processing(session: AsyncSession, media_id: uuid.UUID) -> M
         await session.commit()
         return media_item
 
-    existing = await session.scalar(select(MediaItem).where(MediaItem.id == media_id))
     await session.rollback()
     return None
 

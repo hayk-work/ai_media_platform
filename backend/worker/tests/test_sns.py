@@ -3,10 +3,9 @@ import uuid
 
 import boto3
 import pytest
-from moto import mock_aws
-
 from common.config import Settings
 from common.sns import build_processing_notification_payload, publish_processing_notification
+from moto import mock_aws
 
 
 def test_build_processing_notification_payload() -> None:

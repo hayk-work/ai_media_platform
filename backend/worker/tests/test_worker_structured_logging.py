@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from structlog.testing import capture_logs
-
 from worker.app.processor import handle_message
 
 
@@ -32,6 +31,8 @@ async def test_handle_message_logs_sqs_message_received() -> None:
         handled = await handle_message(message)
 
     assert handled is True
-    received = next(entry for entry in captured_logs if entry.get("event") == "sqs_message_received")
+    received = next(
+        entry for entry in captured_logs if entry.get("event") == "sqs_message_received"
+    )
     assert received["message_id"] == "msg-123"
     assert received["object_key"] == object_key

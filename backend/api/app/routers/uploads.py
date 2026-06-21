@@ -1,4 +1,3 @@
-import uuid
 
 import structlog
 from common.config import settings

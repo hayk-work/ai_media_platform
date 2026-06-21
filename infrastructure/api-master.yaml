@@ -117,6 +117,7 @@ Resources:
         DbPort: !GetAtt RdsStack.Outputs.DbPort
         DatabaseSecretArn: !GetAtt RdsStack.Outputs.DatabaseSecretArn
         MediaBucketName: !GetAtt S3Stack.Outputs.MediaBucketName
+        MediaBucketArn: !GetAtt S3Stack.Outputs.MediaBucketArn
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-api-stack
@@ -171,6 +172,18 @@ Outputs:
     Value: !GetAtt EcsApiStack.Outputs.ApiLoadBalancerUrl
     Export:
       Name: !Sub ${EnvironmentName}-ApiLoadBalancerUrl
+
+  CloudFrontUrl:
+    Description: HTTPS URL for the CloudFront CDN entry point.
+    Value: !GetAtt EcsApiStack.Outputs.CloudFrontUrl
+    Export:
+      Name: !Sub ${EnvironmentName}-CloudFrontUrl
+
+  CloudFrontMediaBaseUrl:
+    Description: Base URL used by the API to build processed media links.
+    Value: !GetAtt EcsApiStack.Outputs.CloudFrontMediaBaseUrl
+    Export:
+      Name: !Sub ${EnvironmentName}-CloudFrontMediaBaseUrl
 
   DbEndpoint:
     Description: RDS endpoint hostname.

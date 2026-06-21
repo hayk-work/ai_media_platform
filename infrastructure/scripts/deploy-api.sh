@@ -65,9 +65,20 @@ API_URL="$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='ApiLoadBalancerUrl'].OutputValue" \
   --output text)"
 
+CLOUDFRONT_URL="$(aws cloudformation describe-stacks \
+  --stack-name "${STACK_NAME}" \
+  --query "Stacks[0].Outputs[?OutputKey=='CloudFrontUrl'].OutputValue" \
+  --output text)"
+
 echo "Stack deployed: ${STACK_NAME}"
 echo "API URL: ${API_URL}"
+echo "CloudFront URL: ${CLOUDFRONT_URL}"
 
 echo "Health check:"
 curl -sf "${API_URL}/health"
 echo
+if [[ -n "${CLOUDFRONT_URL}" && "${CLOUDFRONT_URL}" != "None" ]]; then
+  echo "CloudFront health check:"
+  curl -sf "${CLOUDFRONT_URL}/health"
+  echo
+fi

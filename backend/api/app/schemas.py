@@ -81,6 +81,7 @@ class MediaItemResponse(BaseModel):
     status: MediaStatus
     s3_key: str | None
     thumbnail_s3_key: str | None
+    thumbnail_url: str | None = None
     metadata_json: dict | None
     created_at: datetime
     updated_at: datetime

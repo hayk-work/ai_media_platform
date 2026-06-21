@@ -42,6 +42,14 @@ def _construct_not(loader: CloudFormationLoader, node: yaml.Node) -> dict:
     return {"Fn::Not": loader.construct_sequence(node)}
 
 
+def _construct_and(loader: CloudFormationLoader, node: yaml.Node) -> dict:
+    return {"Fn::And": loader.construct_sequence(node)}
+
+
+def _construct_if(loader: CloudFormationLoader, node: yaml.Node) -> dict:
+    return {"Fn::If": loader.construct_sequence(node)}
+
+
 CloudFormationLoader.add_constructor("!Ref", _construct_ref)
 CloudFormationLoader.add_constructor("!GetAtt", _construct_getatt)
 CloudFormationLoader.add_constructor("!Sub", _construct_sub)
@@ -51,6 +59,8 @@ CloudFormationLoader.add_constructor("!Split", _construct_sequence_intrinsic("Fn
 CloudFormationLoader.add_constructor("!Cidr", _construct_sequence_intrinsic("Fn::Cidr"))
 CloudFormationLoader.add_constructor("!Equals", _construct_equals)
 CloudFormationLoader.add_constructor("!Not", _construct_not)
+CloudFormationLoader.add_constructor("!And", _construct_and)
+CloudFormationLoader.add_constructor("!If", _construct_if)
 
 
 def load_template(name: str) -> dict:
@@ -247,6 +257,52 @@ def test_ecs_api_receives_media_bucket_from_s3_stack() -> None:
     template = load_template("api-master.yaml")
     ecs_params = template["Resources"]["EcsApiStack"]["Properties"]["Parameters"]
     assert ecs_params["MediaBucketName"] == {"Fn::GetAtt": ["S3Stack", "Outputs.MediaBucketName"]}
+    assert ecs_params["MediaBucketArn"] == {"Fn::GetAtt": ["S3Stack", "Outputs.MediaBucketArn"]}
+
+
+def test_cloudfront_template_defines_distribution_oac_and_bucket_policy() -> None:
+    template = load_template("cloudfront.yaml")
+    types = resource_types(template)
+    assert {
+        "AWS::CloudFront::Distribution",
+        "AWS::CloudFront::OriginAccessControl",
+        "AWS::S3::BucketPolicy",
+    } <= types
+    distribution = template["Resources"]["CloudFrontDistribution"]["Properties"]["DistributionConfig"]
+    assert distribution["DefaultCacheBehavior"]["ViewerProtocolPolicy"] == "redirect-to-https"
+    assert distribution["DefaultCacheBehavior"]["CachePolicyId"] == "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    cache_behaviors = distribution["CacheBehaviors"]
+    path_patterns = {behavior["PathPattern"] for behavior in cache_behaviors}
+    assert path_patterns == {"thumbnails/*", "static/*"}
+
+
+def test_cloudfront_bucket_policy_allows_only_processed_prefixes() -> None:
+    template = load_template("cloudfront.yaml")
+    policy = template["Resources"]["MediaBucketCloudFrontPolicy"]["Properties"]["PolicyDocument"]
+    resources = policy["Statement"][0]["Resource"]
+    resource_text = str(resources)
+    assert "/thumbnails/*" in resource_text
+    assert "/static/*" in resource_text
+    assert "/uploads/*" not in resource_text
+
+
+def test_ecs_api_nests_cloudfront_stack_and_passes_cdn_url_to_task() -> None:
+    template = load_template("ecs-api.yaml")
+    nested = template["Resources"]["CloudFrontStack"]
+    assert nested["Type"] == "AWS::CloudFormation::Stack"
+    assert nested["Properties"]["TemplateURL"] == "cloudfront.yaml"
+    task_def = template["Resources"]["ApiTaskDefinition"]
+    depends_on = task_def.get("DependsOn", [])
+    if isinstance(depends_on, str):
+        depends_on = [depends_on]
+    assert "CloudFrontStack" in depends_on
+    env = {
+        entry["Name"]: entry["Value"]
+        for entry in task_def["Properties"]["ContainerDefinitions"][0]["Environment"]
+    }
+    assert env["CLOUDFRONT_MEDIA_BASE_URL"] == {
+        "Fn::GetAtt": ["CloudFrontStack", "Outputs.CloudFrontMediaBaseUrl"]
+    }
 
 
 def test_s3_bucket_blocks_public_access() -> None:

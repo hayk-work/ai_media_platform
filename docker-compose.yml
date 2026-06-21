@@ -23,6 +23,8 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      CLOUDFRONT_MEDIA_BASE_URL: https://cdn.example.com
     depends_on:
       db:
         condition: service_healthy

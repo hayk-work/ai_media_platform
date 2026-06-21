@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFront CDN for API, processed media, and optional static assets.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  ApiLoadBalancerDnsName:
+    Type: String
+    Description: Public DNS name of the API load balancer origin.
+
+  MediaBucketName:
+    Type: String
+    Description: Private S3 bucket that stores uploads, thumbnails, and static assets.
+
+  MediaBucketArn:
+    Type: String
+    Description: ARN of the private media bucket.
+
+  CustomDomainName:
+    Type: String
+    Default: ""
+    Description: Optional custom domain alias for the CloudFront distribution.
+
+  AcmCertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN in us-east-1 for the custom domain.
+
+Conditions:
+  UseCustomDomain: !And
+    - !Not [!Equals [!Ref CustomDomainName, ""]]
+    - !Not [!Equals [!Ref AcmCertificateArn, ""]]
+
+Resources:
+  MediaOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${EnvironmentName}-media-oac
+        Description: Restrict direct S3 access to CloudFront for processed media.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub ${EnvironmentName} media platform CDN
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Aliases: !If
+          - UseCustomDomain
+          - - !Ref CustomDomainName
+          - !Ref AWS::NoValue
+        ViewerCertificate: !If
+          - UseCustomDomain
+          - AcmCertificateArn: !Ref AcmCertificateArn
+            MinimumProtocolVersion: TLSv1.2_2021
+            SslSupportMethod: sni-only
+          - CloudFrontDefaultCertificate: true
+        Origins:
+          - Id: ApiOrigin
+            DomainName: !Ref ApiLoadBalancerDnsName
+            OriginPath: ""
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols:
+                - TLSv1.2
+          - Id: MediaOrigin
+            DomainName: !Sub ${MediaBucketName}.s3.${AWS::Region}.amazonaws.com
+            OriginAccessControlId: !GetAtt MediaOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: ApiOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b2163dff-4881-476c-8833-98a1c648b993
+        CacheBehaviors:
+          - PathPattern: thumbnails/*
+            TargetOriginId: MediaOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          - PathPattern: static/*
+            TargetOriginId: MediaOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-cdn
+
+  MediaBucketCloudFrontPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucketName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontReadForProcessedMedia
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource:
+              - !Sub ${MediaBucketArn}/thumbnails/*
+              - !Sub ${MediaBucketArn}/static/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+Outputs:
+  CloudFrontDistributionId:
+    Description: CloudFront distribution identifier.
+    Value: !Ref CloudFrontDistribution
+
+  CloudFrontDomainName:
+    Description: CloudFront domain name for viewer requests.
+    Value: !GetAtt CloudFrontDistribution.DomainName
+
+  CloudFrontUrl:
+    Description: HTTPS URL for the CloudFront distribution.
+    Value: !Sub https://${CloudFrontDistribution.DomainName}
+
+  CloudFrontMediaBaseUrl:
+    Description: Base URL used by the API to build processed media links.
+    Value: !Sub https://${CloudFrontDistribution.DomainName}

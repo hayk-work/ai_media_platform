@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     groq_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     ai_mock_mode: bool = False
     sns_processing_topic_arn: str = ""
+    cloudfront_media_base_url: str = ""
+
+    @property
+    def cloudfront_enabled(self) -> bool:
+        return bool(self.cloudfront_media_base_url)
 
     @property
     def sns_enabled(self) -> bool:

@@ -51,6 +51,21 @@ Parameters:
     Default: ""
     Description: S3 bucket for original media uploads.
 
+  MediaBucketArn:
+    Type: String
+    Default: ""
+    Description: ARN of the private media bucket.
+
+  CustomDomainName:
+    Type: String
+    Default: ""
+    Description: Optional custom domain alias for CloudFront.
+
+  AcmCertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN in us-east-1 for the custom domain.
+
 Resources:
   ApiJwtSecret:
     Type: AWS::SecretsManager::Secret
@@ -134,8 +149,25 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref ApiTargetGroup
 
+  CloudFrontStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ApiListener
+    Properties:
+      TemplateURL: cloudfront.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        ApiLoadBalancerDnsName: !GetAtt ApiLoadBalancer.DNSName
+        MediaBucketName: !Ref MediaBucketName
+        MediaBucketArn: !Ref MediaBucketArn
+        CustomDomainName: !Ref CustomDomainName
+        AcmCertificateArn: !Ref AcmCertificateArn
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-cloudfront-stack
+
   ApiTaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DependsOn: CloudFrontStack
     Properties:
       Family: !Sub ${EnvironmentName}-api
       Cpu: "256"
@@ -173,6 +205,8 @@ Resources:
               Value: !Ref AWS::Region
             - Name: S3_MEDIA_BUCKET
               Value: !Ref MediaBucketName
+            - Name: CLOUDFRONT_MEDIA_BASE_URL
+              Value: !GetAtt CloudFrontStack.Outputs.CloudFrontMediaBaseUrl
           Secrets:
             - Name: DB_PASSWORD
               ValueFrom: !Sub "${DatabaseSecretArn}:password::"
@@ -187,7 +221,9 @@ Resources:
 
   ApiService:
     Type: AWS::ECS::Service
-    DependsOn: ApiListener
+    DependsOn:
+      - ApiListener
+      - ApiTaskDefinition
     Properties:
       ServiceName: !Sub ${EnvironmentName}-api
       Cluster: !Ref ApiCluster
@@ -233,3 +269,15 @@ Outputs:
   ApiJwtSecretArn:
     Description: Secrets Manager ARN for the API JWT secret.
     Value: !Ref ApiJwtSecret
+
+  CloudFrontDomainName:
+    Description: CloudFront domain name for API and media delivery.
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontDomainName
+
+  CloudFrontUrl:
+    Description: HTTPS URL for the CloudFront distribution.
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontUrl
+
+  CloudFrontMediaBaseUrl:
+    Description: Base URL used by the API to build processed media links.
+    Value: !GetAtt CloudFrontStack.Outputs.CloudFrontMediaBaseUrl

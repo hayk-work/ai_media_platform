@@ -58,3 +58,14 @@ ProcessingNotificationTopicArn:
   used_by:
     - ECS worker task environment
     - IAM publish policies
+
+CloudFrontUrl:
+  description: HTTPS URL for the CloudFront CDN entry point
+  used_by:
+    - Client applications
+    - Portfolio demos
+
+CloudFrontMediaBaseUrl:
+  description: Base URL used by the API to build processed media links
+  used_by:
+    - ECS API task environment

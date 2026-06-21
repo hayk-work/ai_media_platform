@@ -1,5 +1,6 @@
 import uuid
 
+from common.cdn import build_cloudfront_media_url
 from common.db import get_db_session
 from common.enums import AiAnalysisStatus
 from common.models import MediaAiResult, MediaItem, User
@@ -61,6 +62,7 @@ def _to_media_response(item: MediaItem) -> MediaItemResponse:
         status=item.status,
         s3_key=item.s3_key,
         thumbnail_s3_key=item.thumbnail_s3_key,
+        thumbnail_url=build_cloudfront_media_url(item.thumbnail_s3_key),
         metadata_json=item.metadata_json,
         created_at=item.created_at,
         updated_at=item.updated_at,

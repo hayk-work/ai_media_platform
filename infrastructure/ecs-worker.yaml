@@ -50,7 +50,18 @@ Parameters:
     Type: String
     Default: ""
 
+  GroqModel:
+    Type: String
+    Default: meta-llama/llama-4-scout-17b-16e-instruct
+    Description: Groq model identifier for media analysis.
+
 Resources:
+  GroqApiKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${EnvironmentName}/worker/groq-api-key
+      Description: Groq API key for LangGraph media analysis in the worker.
+
   WorkerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -71,6 +82,7 @@ Resources:
               - secretsmanager:GetSecretValue
             Resource:
               - !Ref DatabaseSecretArn
+              - !Ref GroqApiKeySecret
 
   WorkerTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -108,9 +120,15 @@ Resources:
               Value: !Ref ProcessingQueueUrl
             - Name: SNS_PROCESSING_TOPIC_ARN
               Value: !Ref ProcessingNotificationTopicArn
+            - Name: GROQ_MODEL
+              Value: !Ref GroqModel
+            - Name: AI_MOCK_MODE
+              Value: "false"
           Secrets:
             - Name: DB_PASSWORD
               ValueFrom: !Sub "${DatabaseSecretArn}:password::"
+            - Name: GROQ_API_KEY
+              ValueFrom: !Ref GroqApiKeySecret
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -144,3 +162,7 @@ Outputs:
   WorkerLogGroupName:
     Description: CloudWatch log group for worker container logs.
     Value: !Ref WorkerLogGroup
+
+  GroqApiKeySecretArn:
+    Description: Secrets Manager ARN for the worker Groq API key.
+    Value: !Ref GroqApiKeySecret

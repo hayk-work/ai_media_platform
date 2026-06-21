@@ -15,6 +15,32 @@ API_ECR_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ENVIRONMENT_NAM
 WORKER_ECR_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ENVIRONMENT_NAME}-worker"
 API_IMAGE_URI="${API_ECR_URI}:${IMAGE_TAG}"
 WORKER_IMAGE_URI="${WORKER_ECR_URI}:${IMAGE_TAG}"
+GROQ_SECRET_NAME="${ENVIRONMENT_NAME}/worker/groq-api-key"
+
+sync_groq_secret() {
+  local env_file="${REPO_ROOT}/.env"
+  if [[ ! -f "${env_file}" ]]; then
+    echo "Skipping Groq secret sync: ${env_file} not found."
+    return 0
+  fi
+
+  local groq_key
+  groq_key="$(grep -E '^GROQ_API_KEY=' "${env_file}" | cut -d= -f2- || true)"
+  if [[ -z "${groq_key}" ]]; then
+    echo "Skipping Groq secret sync: GROQ_API_KEY is empty in ${env_file}."
+    return 0
+  fi
+
+  if ! aws secretsmanager describe-secret --secret-id "${GROQ_SECRET_NAME}" >/dev/null 2>&1; then
+    echo "Groq secret ${GROQ_SECRET_NAME} not found yet; it will be created by CloudFormation."
+    return 0
+  fi
+
+  echo "Syncing Groq API key to Secrets Manager (${GROQ_SECRET_NAME})..."
+  aws secretsmanager put-secret-value \
+    --secret-id "${GROQ_SECRET_NAME}" \
+    --secret-string "${groq_key}" >/dev/null
+}
 
 echo "Phase 1: deploy platform stacks (scale services to 0)..."
 aws cloudformation package \
@@ -33,6 +59,8 @@ aws cloudformation deploy \
     "ApiDesiredCount=0" \
     "WorkerDesiredCount=0" \
   --no-fail-on-empty-changeset
+
+sync_groq_secret
 
 echo "Phase 2: build and push API + worker images to ECR..."
 aws ecr get-login-password --region "${AWS_REGION}" \
@@ -55,6 +83,8 @@ aws cloudformation deploy \
     "ApiDesiredCount=1" \
     "WorkerDesiredCount=1" \
   --no-fail-on-empty-changeset
+
+sync_groq_secret
 
 CLUSTER_NAME="${ENVIRONMENT_NAME}-cluster"
 echo "Waiting for ECS services to stabilize..."

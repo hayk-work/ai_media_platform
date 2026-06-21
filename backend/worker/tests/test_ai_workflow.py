@@ -1,7 +1,7 @@
 from io import BytesIO
 
 import pytest
-from common.ai.schemas import MediaAnalysisOutput
+from common.ai.schemas import GroqMediaAnalysisOutput, MediaAnalysisOutput
 from common.ai.workflow import run_media_analysis_workflow
 from common.config import settings
 from PIL import Image
@@ -29,6 +29,19 @@ def test_run_media_analysis_workflow_mock_mode(monkeypatch: pytest.MonkeyPatch) 
     assert "mock" in result.tags
     assert "sunset" in result.tags
     assert result.is_safe is True
+
+
+def test_groq_media_analysis_output_coerces_string_is_safe() -> None:
+    parsed = GroqMediaAnalysisOutput(
+        caption="A blue image",
+        tags=["blue"],
+        labels=["photo"],
+        quality_issues=[],
+        is_safe="true",
+    )
+    result = parsed.to_media_analysis()
+    assert result.is_safe is True
+    assert isinstance(result, MediaAnalysisOutput)
 
 
 def test_run_media_analysis_workflow_validates_required_fields(

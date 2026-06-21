@@ -236,6 +236,22 @@ def test_ecs_worker_receives_sns_topic_arn_env_var() -> None:
     assert "SNS_PROCESSING_TOPIC_ARN" in env_names
 
 
+def test_ecs_worker_uses_groq_secret_and_model_env() -> None:
+    template = load_template("ecs-worker.yaml")
+    types = resource_types(template)
+    assert "AWS::SecretsManager::Secret" in types
+    container = template["Resources"]["WorkerTaskDefinition"]["Properties"][
+        "ContainerDefinitions"
+    ][0]
+    env_names = {entry["Name"] for entry in container["Environment"]}
+    assert {"GROQ_MODEL", "AI_MOCK_MODE"} <= env_names
+    secret_names = {entry["Name"] for entry in container["Secrets"]}
+    assert "GROQ_API_KEY" in secret_names
+    policy = template["Resources"]["WorkerExecutionSecretsPolicy"]["Properties"]["PolicyDocument"]
+    resources = policy["Statement"][0]["Resource"]
+    assert any("GroqApiKeySecret" in str(resource) for resource in resources)
+
+
 def test_s3_bucket_enables_eventbridge_notifications() -> None:
     template = load_template("s3.yaml")
     bucket = template["Resources"]["MediaBucket"]["Properties"]

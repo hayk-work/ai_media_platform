@@ -6,7 +6,7 @@ import structlog
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
 
-from common.ai.schemas import MediaAnalysisOutput
+from common.ai.schemas import GroqMediaAnalysisOutput, MediaAnalysisOutput
 from common.config import settings
 
 logger = structlog.get_logger(__name__)
@@ -96,11 +96,13 @@ def _groq_analysis(state: AnalysisState) -> MediaAnalysisOutput:
         api_key=settings.groq_api_key,
         temperature=0.2,
     )
-    structured_model = model.with_structured_output(MediaAnalysisOutput)
+    structured_model = model.with_structured_output(GroqMediaAnalysisOutput)
     result = structured_model.invoke([message])
+    if isinstance(result, GroqMediaAnalysisOutput):
+        return result.to_media_analysis()
     if isinstance(result, MediaAnalysisOutput):
         return result
-    return MediaAnalysisOutput.model_validate(result)
+    return GroqMediaAnalysisOutput.model_validate(result).to_media_analysis()
 
 
 def analyze_image(state: AnalysisState) -> dict[str, Any]:

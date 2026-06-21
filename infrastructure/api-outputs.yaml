@@ -69,3 +69,15 @@ CloudFrontMediaBaseUrl:
   description: Base URL used by the API to build processed media links
   used_by:
     - ECS API task environment
+
+EventsLogGroupName:
+  description: CloudWatch log group for EventBridge and platform events
+  used_by:
+    - Monitoring
+    - Event troubleshooting
+
+SqsBacklogAlarmName:
+  description: CloudWatch alarm for SQS visible message backlog
+  used_by:
+    - Operations alerts
+    - Portfolio demos

@@ -106,6 +106,10 @@ Outputs:
     Description: SQS queue URL for media processing jobs.
     Value: !Ref ProcessingQueue
 
+  ProcessingQueueName:
+    Description: SQS queue name for CloudWatch metric dimensions.
+    Value: !GetAtt ProcessingQueue.QueueName
+
   ProcessingQueueArn:
     Description: SQS queue ARN.
     Value: !GetAtt ProcessingQueue.Arn

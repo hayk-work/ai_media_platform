@@ -154,6 +154,29 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-ecs-worker-stack
 
+  MonitoringStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - EcsApiStack
+      - EcsWorkerStack
+      - ProcessingStack
+      - RdsStack
+      - NotificationsStack
+    Properties:
+      TemplateURL: monitoring.yaml
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        ProcessingQueueName: !GetAtt ProcessingStack.Outputs.ProcessingQueueName
+        ApiClusterName: !GetAtt EcsApiStack.Outputs.ApiClusterName
+        ApiServiceName: !GetAtt EcsApiStack.Outputs.ApiServiceName
+        WorkerServiceName: !GetAtt EcsWorkerStack.Outputs.WorkerServiceName
+        DatabaseInstanceId: !GetAtt RdsStack.Outputs.DbInstanceIdentifier
+        ApiLoadBalancerFullName: !GetAtt EcsApiStack.Outputs.ApiLoadBalancerFullName
+        AlarmNotificationTopicArn: !GetAtt NotificationsStack.Outputs.ProcessingNotificationTopicArn
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-monitoring-stack
+
 Outputs:
   ApiRepositoryUri:
     Description: ECR repository URI for the API image.
@@ -226,3 +249,15 @@ Outputs:
     Value: !GetAtt NotificationsStack.Outputs.ProcessingNotificationTopicArn
     Export:
       Name: !Sub ${EnvironmentName}-ProcessingNotificationTopicArn
+
+  EventsLogGroupName:
+    Description: CloudWatch log group for EventBridge and platform events.
+    Value: !GetAtt MonitoringStack.Outputs.EventsLogGroupName
+    Export:
+      Name: !Sub ${EnvironmentName}-EventsLogGroupName
+
+  SqsBacklogAlarmName:
+    Description: CloudWatch alarm for SQS visible message backlog.
+    Value: !GetAtt MonitoringStack.Outputs.SqsBacklogAlarmName
+    Export:
+      Name: !Sub ${EnvironmentName}-SqsBacklogAlarmName

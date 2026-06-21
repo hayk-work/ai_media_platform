@@ -65,6 +65,10 @@ Outputs:
     Description: RDS endpoint hostname for application connections.
     Value: !GetAtt DatabaseInstance.Endpoint.Address
 
+  DbInstanceIdentifier:
+    Description: RDS DB instance identifier for CloudWatch metric dimensions.
+    Value: !Ref DatabaseInstance
+
   DbPort:
     Description: RDS endpoint port.
     Value: !GetAtt DatabaseInstance.Endpoint.Port

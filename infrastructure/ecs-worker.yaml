@@ -65,7 +65,7 @@ Resources:
   WorkerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /ecs/${EnvironmentName}-worker
+      LogGroupName: /ecs/worker
       RetentionInDays: 14
 
   WorkerExecutionSecretsPolicy:

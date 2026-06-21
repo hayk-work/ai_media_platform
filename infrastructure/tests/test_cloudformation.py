@@ -384,3 +384,108 @@ def test_security_stack_receives_vpc_id_from_network_stack() -> None:
     template = load_template("master.yaml")
     security_params = template["Resources"]["SecurityStack"]["Properties"]["Parameters"]
     assert security_params["VpcId"] == {"Fn::GetAtt": ["NetworkStack", "Outputs.VpcId"]}
+
+
+def test_monitoring_template_defines_log_group_and_alarms() -> None:
+    template = load_template("monitoring.yaml")
+    types = resource_types(template)
+    assert "AWS::Logs::LogGroup" in types
+    assert "AWS::CloudWatch::Alarm" in types
+    log_group = template["Resources"]["EventsLogGroup"]["Properties"]
+    assert log_group["LogGroupName"] == "/aws/events/media-platform"
+    alarm_names = {
+        name
+        for name, spec in template["Resources"].items()
+        if spec["Type"] == "AWS::CloudWatch::Alarm"
+    }
+    assert {
+        "SqsBacklogAlarm",
+        "SqsOldestMessageAlarm",
+        "ApiTarget5xxAlarm",
+        "RdsCpuAlarm",
+        "RdsConnectionsAlarm",
+    } <= alarm_names
+
+
+def test_monitoring_sqs_alarm_uses_queue_name_dimension() -> None:
+    template = load_template("monitoring.yaml")
+    alarm = template["Resources"]["SqsBacklogAlarm"]["Properties"]
+    assert alarm["Namespace"] == "AWS/SQS"
+    assert alarm["MetricName"] == "ApproximateNumberOfMessagesVisible"
+    dimensions = {entry["Name"]: entry["Value"] for entry in alarm["Dimensions"]}
+    assert dimensions["QueueName"] == {"Ref": "ProcessingQueueName"}
+
+
+def test_cloudtrail_template_defines_audit_bucket_and_trail() -> None:
+    template = load_template("cloudtrail.yaml")
+    types = resource_types(template)
+    assert {
+        "AWS::S3::Bucket",
+        "AWS::S3::BucketPolicy",
+        "AWS::CloudTrail::Trail",
+    } <= types
+    bucket = template["Resources"]["AuditBucket"]["Properties"]
+    public_access = bucket["PublicAccessBlockConfiguration"]
+    assert public_access["BlockPublicAcls"] is True
+    assert public_access["RestrictPublicBuckets"] is True
+    trail = template["Resources"]["AuditTrail"]["Properties"]
+    assert trail["IsLogging"] is True
+    assert trail["EnableLogFileValidation"] is True
+
+
+def test_master_stack_nests_cloudtrail() -> None:
+    template = load_template("master.yaml")
+    nested = {
+        name: spec
+        for name, spec in template["Resources"].items()
+        if spec["Type"] == "AWS::CloudFormation::Stack"
+    }
+    assert "CloudTrailStack" in nested
+    assert nested["CloudTrailStack"]["Properties"]["TemplateURL"] == "cloudtrail.yaml"
+
+
+def test_api_master_nests_monitoring_stack() -> None:
+    template = load_template("api-master.yaml")
+    nested = {
+        name: spec
+        for name, spec in template["Resources"].items()
+        if spec["Type"] == "AWS::CloudFormation::Stack"
+    }
+    assert "MonitoringStack" in nested
+    monitoring = nested["MonitoringStack"]["Properties"]
+    assert monitoring["TemplateURL"] == "monitoring.yaml"
+    params = monitoring["Parameters"]
+    assert params["ProcessingQueueName"] == {
+        "Fn::GetAtt": ["ProcessingStack", "Outputs.ProcessingQueueName"]
+    }
+    assert params["ApiLoadBalancerFullName"] == {
+        "Fn::GetAtt": ["EcsApiStack", "Outputs.ApiLoadBalancerFullName"]
+    }
+
+
+def test_ecs_log_groups_use_sprint_paths() -> None:
+    api_template = load_template("ecs-api.yaml")
+    worker_template = load_template("ecs-worker.yaml")
+    assert api_template["Resources"]["ApiLogGroup"]["Properties"]["LogGroupName"] == "/ecs/api"
+    assert worker_template["Resources"]["WorkerLogGroup"]["Properties"]["LogGroupName"] == "/ecs/worker"
+
+
+def test_iam_task_roles_scope_log_permissions() -> None:
+    template = load_template("iam.yaml")
+    api_logs = template["Resources"]["EcsApiTaskRole"]["Properties"]["Policies"][0]["PolicyDocument"]
+    worker_logs = template["Resources"]["EcsWorkerTaskRole"]["Properties"]["Policies"][0][
+        "PolicyDocument"
+    ]
+    api_resource = api_logs["Statement"][0]["Resource"]
+    worker_resource = worker_logs["Statement"][0]["Resource"]
+    assert "/ecs/api" in str(api_resource)
+    assert "/ecs/worker" in str(worker_resource)
+    assert api_resource != "*"
+    assert worker_resource != "*"
+
+
+def test_master_outputs_include_cloudtrail_contract() -> None:
+    master_outputs = set(load_template("master.yaml").get("Outputs", {}))
+    contract = yaml.safe_load((INFRA_DIR / "outputs.yaml").read_text(encoding="utf-8"))
+    required_outputs = set(contract)
+    assert required_outputs <= master_outputs

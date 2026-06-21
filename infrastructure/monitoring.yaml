@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudWatch log groups, metrics alarms, and optional SNS notifications.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: ai-media-platform
+
+  ProcessingQueueName:
+    Type: String
+    Description: SQS queue name for media processing jobs.
+
+  ApiClusterName:
+    Type: String
+    Description: ECS cluster name hosting the API and worker services.
+
+  ApiServiceName:
+    Type: String
+    Description: ECS service name for the API tasks.
+
+  WorkerServiceName:
+    Type: String
+    Description: ECS service name for the worker tasks.
+
+  DatabaseInstanceId:
+    Type: String
+    Description: RDS DB instance identifier.
+
+  ApiLoadBalancerFullName:
+    Type: String
+    Description: Full name of the API Application Load Balancer for metric dimensions.
+
+  AlarmNotificationTopicArn:
+    Type: String
+    Default: ""
+    Description: Optional SNS topic ARN for alarm notifications.
+
+  SqsBacklogThreshold:
+    Type: Number
+    Default: 100
+    Description: Alarm when visible SQS messages exceed this count.
+
+  SqsOldestMessageAgeSeconds:
+    Type: Number
+    Default: 900
+    Description: Alarm when the oldest SQS message age exceeds this many seconds.
+
+  Api5xxThreshold:
+    Type: Number
+    Default: 10
+    Description: Alarm when target 5xx responses exceed this count per period.
+
+  RdsCpuThreshold:
+    Type: Number
+    Default: 80
+    Description: Alarm when RDS CPU utilization exceeds this percentage.
+
+  RdsConnectionsThreshold:
+    Type: Number
+    Default: 80
+    Description: Alarm when RDS database connections exceed this count.
+
+Conditions:
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmNotificationTopicArn, ""]]
+
+Resources:
+  EventsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/events/media-platform
+      RetentionInDays: 14
+
+  SqsBacklogAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-sqs-backlog
+      AlarmDescription: Visible messages in the processing queue are above the backlog threshold.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !Ref ProcessingQueueName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref SqsBacklogThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmNotificationTopicArn
+        - !Ref AWS::NoValue
+
+  SqsOldestMessageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-sqs-oldest-message-age
+      AlarmDescription: Oldest SQS message age indicates worker backlog or stalled processing.
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !Ref ProcessingQueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref SqsOldestMessageAgeSeconds
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmNotificationTopicArn
+        - !Ref AWS::NoValue
+
+  ApiTarget5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-api-target-5xx
+      AlarmDescription: API target group is returning too many 5xx responses.
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref ApiLoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref Api5xxThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmNotificationTopicArn
+        - !Ref AWS::NoValue
+
+  RdsCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-rds-cpu
+      AlarmDescription: RDS CPU utilization is above the configured threshold.
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref RdsCpuThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmNotificationTopicArn
+        - !Ref AWS::NoValue
+
+  RdsConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${EnvironmentName}-rds-connections
+      AlarmDescription: RDS connection count is above the configured threshold.
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DatabaseInstanceId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref RdsConnectionsThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If
+        - HasAlarmTopic
+        - - !Ref AlarmNotificationTopicArn
+        - !Ref AWS::NoValue
+
+Outputs:
+  EventsLogGroupName:
+    Description: CloudWatch log group for EventBridge and platform events.
+    Value: !Ref EventsLogGroup
+
+  SqsBacklogAlarmName:
+    Description: CloudWatch alarm for SQS visible message backlog.
+    Value: !Ref SqsBacklogAlarm

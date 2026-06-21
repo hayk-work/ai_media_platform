@@ -90,3 +90,13 @@ class MediaItemResponse(BaseModel):
 
 class MediaListResponse(BaseModel):
     items: list[MediaItemResponse]
+
+
+class NotificationPreferencesResponse(BaseModel):
+    email_enabled: bool
+    sms_enabled: bool
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    email_enabled: bool
+    sms_enabled: bool = False

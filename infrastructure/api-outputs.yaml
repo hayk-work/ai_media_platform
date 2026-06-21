@@ -52,3 +52,9 @@ WorkerLogGroupName:
   used_by:
     - Monitoring
     - Debugging
+
+ProcessingNotificationTopicArn:
+  description: SNS topic ARN for media processing completion notifications
+  used_by:
+    - ECS worker task environment
+    - IAM publish policies

@@ -12,3 +12,9 @@ class AiAnalysisStatus(enum.StrEnum):
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class NotificationStatus(enum.StrEnum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+    FAILED = "FAILED"

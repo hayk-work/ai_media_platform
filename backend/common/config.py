@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     ai_mock_mode: bool = False
+    sns_processing_topic_arn: str = ""
+
+    @property
+    def sns_enabled(self) -> bool:
+        return bool(self.sns_processing_topic_arn)
 
     @property
     def ai_enabled(self) -> bool:
